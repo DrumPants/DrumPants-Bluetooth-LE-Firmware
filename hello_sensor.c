@@ -105,6 +105,8 @@ static void hello_sensor_indication_cfm( void );
 static void hello_sensor_interrupt_handler( UINT8 value );
 extern void bleprofile_appTimerCb( UINT32 arg );
 
+static void hello_sensor_start_send_message();
+
 /******************************************************
  *               Variables Definitions
  ******************************************************/
@@ -328,6 +330,10 @@ APPLICATION_INIT()
 ******************************************************/
 void onUARTReceive(char* buffer, int bufferLength) {
 	 ble_trace1("onUARTReceive len: %d\n", bufferLength);
+
+	 if (bufferLength > 1) { // only send valid MIDI messages - UART is splitting them into 1 byte then 2 byte packets
+	 	 hello_sensor_start_send_message();
+	 }
 }
 
 
@@ -728,6 +734,10 @@ void hello_sensor_interrupt_handler(UINT8 value)
     	db_pdu.pdu[6] = '0';
     bleprofile_WriteHandle(HANDLE_HELLO_SENSOR_VALUE_NOTIFY, &db_pdu);
 
+    hello_sensor_start_send_message();
+}
+
+void hello_sensor_start_send_message() {
     // remember how many messages we need to send
     hello_sensor_num_to_write++;
 
