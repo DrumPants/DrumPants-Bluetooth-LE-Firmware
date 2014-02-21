@@ -8,7 +8,7 @@
 # written permission of Broadcom Corporation.
 #
 
-APP_SRC = hello_sensor.c
+APP_SRC = hello_sensor.c uart_one_wire.c
 
 ########################################################################
 # Add subdirectories to the includes
