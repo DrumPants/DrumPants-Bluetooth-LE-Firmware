@@ -15,8 +15,17 @@ extern BLECM_FUNC_WITH_PARAM puart_bleRxCb;
 // Use P32 for peripheral uart TX.
 #define PUART_TX_PIN 32
 
-// Application initialization function.
-void application_init(void) {
+//private:
+INT32 application_puart_interrupt_callback(void* unused);
+
+
+// holds the callback function when a packet is read.
+FUNC_ON_UART_RECEIVE onReceiveCB;
+
+/***
+ * Inits the PUART with the given RX callback.
+ */
+void uart_init(FUNC_ON_UART_RECEIVE callback) {
 	extern puart_UartConfig puart_config;
 
 	// Do all other app initializations.
@@ -123,6 +132,8 @@ INT32 application_puart_interrupt_callback(void* unused) {
 	}
 
 	// readbytes should have number_of_bytes_read bytes of data read from puart. Do something with this.
+
+
 	// clear the interrupt
 	P_UART_INT_CLEAR(P_UART_ISR_RX_AFF_MASK);
 

@@ -44,6 +44,9 @@
 #include "platform.h"
 #include "hello_sensor.h"
 
+#include "uart_one_wire.h"
+
+
 /******************************************************
  *                      Constants
  ******************************************************/
@@ -320,6 +323,14 @@ APPLICATION_INIT()
                    hello_sensor_create);
 }
 
+/******************************************************
+ * UART
+******************************************************/
+void onUARTReceive(char* buffer, int bufferLength) {
+	 //ble_trace1("hello_sensor bad service UUID len: %d\n", db_pdu.len);
+}
+
+
 // Create hello sensor
 void hello_sensor_create(void)
 {
@@ -388,6 +399,10 @@ void hello_sensor_create(void)
     }
     blecm_setTxPowerInADV(0);
     bleprofile_Discoverable(HIGH_UNDIRECTED_DISCOVERABLE, hello_sensor_remote_addr);
+
+
+    // init the UART
+    uart_init(&onUARTReceive);
 }
 
 // Initialize GATT database
