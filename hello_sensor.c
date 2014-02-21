@@ -269,9 +269,9 @@ const BLE_PROFILE_CFG hello_sensor_cfg =
 // Following structure defines UART configuration
 const BLE_PROFILE_PUART_CFG hello_sensor_puart_cfg =
 {
-    /*.baudrate   =*/ 115200,
-    /*.txpin      =*/ PUARTDISABLE | GPIO_PIN_UART_TX,
-    /*.rxpin      =*/ PUARTDISABLE | GPIO_PIN_UART_RX,
+    /*.baudrate   =*/ PUART_BAUD_RATE,
+    /*.txpin      =*/ PUARTENABLE | PUART_TX_PIN,
+    /*.rxpin      =*/ PUARTENABLE | PUART_RX_PIN,
 };
 
 // Following structure defines GPIO configuration used by the application
@@ -327,7 +327,7 @@ APPLICATION_INIT()
  * UART
 ******************************************************/
 void onUARTReceive(char* buffer, int bufferLength) {
-	 //ble_trace1("hello_sensor bad service UUID len: %d\n", db_pdu.len);
+	 ble_trace1("onUARTReceive len: %d\n", bufferLength);
 }
 
 

@@ -6,6 +6,14 @@
 #define UART_ONE_WIRE_H
 
 
+// Use P33 for peripheral uart RX.
+#define PUART_RX_PIN GPIO_PIN_UART_RX
+// Use P32 for peripheral uart TX.
+#define PUART_TX_PIN GPIO_PIN_UART_TX
+
+#define PUART_BAUD_RATE 115200
+
+
 // the callback function when a packet is read.
 // - char* buffer : the buffer (no bigger than 16 bytes)
 // - int bufferLength : length of buffer (min: 1, max: 16)

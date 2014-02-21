@@ -4,16 +4,13 @@
 #include "blecm.h"
 #include "20732mapa0.h"
 #include "puart.h"
+#include "platform.h"
 
 #include "uart_one_wire.h"
 
 // fix for puart.h - found in ws_upgrade_uart.h - have no idea if that's right.
 extern BLECM_FUNC_WITH_PARAM puart_bleRxCb;
 
-// Use P33 for peripheral uart RX.
-#define PUART_RX_PIN 33
-// Use P32 for peripheral uart TX.
-#define PUART_TX_PIN 32
 
 //private:
 INT32 application_puart_interrupt_callback(void* unused);
@@ -30,7 +27,7 @@ void uart_init(FUNC_ON_UART_RECEIVE callback) {
 
 	// Do all other app initializations.
 	// Set the baud rate we want to use. Default is 115200.
-	puart_config.baudrate = 115200;
+	puart_config.baudrate = PUART_BAUD_RATE;
 	// Select the uart pins for RXD, TXD and optionally CTS and RTS.
 	// If hardware flow control is not required like here, set these
 	// pins to 0x00. See Table 1 and Table 2 for valid options.
@@ -58,6 +55,9 @@ In the absence of this, the app is expected to poll the peripheral uart to pull 
 
 	// Set callback function to app callback function.
 	puart_bleRxCb = application_puart_interrupt_callback;
+
+	// also register a listener from the caller
+	onReceiveCB = callback;
 
 	// Enable the CPU level interrupt
 	puart_enableInterrupt();
@@ -132,7 +132,10 @@ INT32 application_puart_interrupt_callback(void* unused) {
 	}
 
 	// readbytes should have number_of_bytes_read bytes of data read from puart. Do something with this.
-
+	// TODO: should this be after clearing the interrupt????
+	if (number_of_bytes_read > 0) {
+		onReceiveCB(readbytes, number_of_bytes_read);
+	}
 
 	// clear the interrupt
 	P_UART_INT_CLEAR(P_UART_ISR_RX_AFF_MASK);
