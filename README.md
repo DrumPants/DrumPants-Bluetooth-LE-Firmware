@@ -3,6 +3,8 @@ broadcom-wiced-ble-uart
 
 An example of how to use the peripheral UART on a Broadcom BCM20732 Bluetooth Low Energy module using the Wiced Smart SDK. 
 
+Note this is a very simple implementation to prove that it works. You'll probably want to buffer the UART according to your application's needs.
+
 Derived from sample code in the "Wiced Smart Interfaces" PDF, page 15, by Tyler Freeman.
 
 
