@@ -31,6 +31,7 @@ void uart_init(FUNC_ON_UART_RECEIVE callback) {
 	// Do all other app initializations.
 	// Set the baud rate we want to use. Default is 115200.
 	puart_config.baudrate = PUART_BAUD_RATE;
+	//puart_config.pUartFunction
 	// Select the uart pins for RXD, TXD and optionally CTS and RTS.
 	// If hardware flow control is not required like here, set these
 	// pins to 0x00. See Table 1 and Table 2 for valid options.
@@ -50,6 +51,7 @@ The following lines enable interrupt when one (or more) bytes
 are received over the peripheral uart interface. This is optional.
 In the absence of this, the app is expected to poll the peripheral uart to pull out received bytes.
 	 */
+#ifdef ENABLE_PUART_INTERRUPT_CALLBACK
 	// clear interrupt
 	P_UART_INT_CLEAR(P_UART_ISR_RX_AFF_MASK);
 
@@ -69,7 +71,7 @@ In the absence of this, the app is expected to poll the peripheral uart to pull 
 	puart_enableInterrupt();
 
 	/* END - puart interrupt */
-
+#endif
 
 	// print a string message assuming that the device connected
 	// to the peripheral uart can handle this string.

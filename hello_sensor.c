@@ -583,6 +583,22 @@ void hello_sensor_timeout(UINT32 arg)
     UINT8 msg[] = {hello_sensor_timer_count};
 
     application_send_bytes(msg, len);
+
+
+    // read bytes
+    UINT8 buffer[16];
+    UINT32 bytesRead = application_receive_bytes(&buffer, 16);
+
+    ble_trace1("read %d bytes from UART:\n", bytesRead);
+
+//	if (!puart_checkRxdPortPin()) {
+//
+//		ble_trace0("WARNING: PUART RX misconfigured");
+//	}
+//	if (!puart_checkTxdPortPin()) {
+//
+//		ble_trace0("WARNING: PUART TX misconfigured");
+//	}
 }
 
 void hello_sensor_fine_timeout(UINT32 arg)
