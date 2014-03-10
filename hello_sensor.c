@@ -357,7 +357,7 @@ void onUARTReceive(char* buffer, int bufferLength) {
 
 		CBUF_Push(txBuffer, buffer[i]);
 
-//CBUF_Pop(txBuffer);
+CBUF_Pop(txBuffer);
 		ble_trace0(":");
 	 }
 	ble_trace0("\n");
@@ -368,19 +368,19 @@ void onUARTReceive(char* buffer, int bufferLength) {
 	ble_trace1("buffer: %d\n", len);
 	if (len > 1) {// && len % 3 == 0) { // assumes MIDI messages are always 3 in length
 	 	 // store the current buffer message in the characteristic
-		BLEPROFILE_DB_PDU db_pdu;
-
-		bleprofile_ReadHandle(HANDLE_HELLO_SENSOR_VALUE_NOTIFY, &db_pdu);
-		for (i = 0; i < db_pdu.len; i++) {
-			if (!CBUF_IsEmpty(txBuffer)) {
-				db_pdu.pdu[i] = CBUF_Pop(txBuffer);
-			}
-			else {
-				// fill the remaining empty space with 0s???
-				db_pdu.pdu[i] = 0;
-			}
-		}
-		bleprofile_WriteHandle(HANDLE_HELLO_SENSOR_VALUE_NOTIFY, &db_pdu);
+//		BLEPROFILE_DB_PDU db_pdu;
+//
+//		bleprofile_ReadHandle(HANDLE_HELLO_SENSOR_VALUE_NOTIFY, &db_pdu);
+//		for (i = 0; i < db_pdu.len; i++) {
+//			if (!CBUF_IsEmpty(txBuffer)) {
+//				db_pdu.pdu[i] = CBUF_Pop(txBuffer);
+//			}
+//			else {
+//				// fill the remaining empty space with 0s???
+//				db_pdu.pdu[i] = 0;
+//			}
+//		}
+//		bleprofile_WriteHandle(HANDLE_HELLO_SENSOR_VALUE_NOTIFY, &db_pdu);
 
 		hello_sensor_start_send_message();
 	 }
