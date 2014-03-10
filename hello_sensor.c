@@ -566,6 +566,23 @@ void hello_sensor_timeout(UINT32 arg)
         }
         break;
     }
+
+
+    // test UART
+    //char* msg = "Got: xxxx";
+    int len = 1;
+
+//    UINT8* msg = itoa(hello_sensor_timer_count);
+//    if (hello_sensor_timer_count > 99) {
+//        	len = 3;
+//    }
+//    else if (hello_sensor_timer_count > 9) {
+//    	len = 2;
+//    }
+
+    UINT8 msg[] = {hello_sensor_timer_count};
+
+    application_send_bytes(msg, len);
 }
 
 void hello_sensor_fine_timeout(UINT32 arg)
