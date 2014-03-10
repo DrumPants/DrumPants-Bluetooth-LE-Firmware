@@ -53,6 +53,11 @@
  *                      Constants
  ******************************************************/
 
+// set to 1 to try to send notifications every time we receive something on the P_UART.
+// (this code doesn't work)
+#define ENABLE_SENDING_UART_OVER_AIR 0
+
+
 // Please note that all UUIDs need to be reversed when publishing in the database
 
 // {1B7E8251-2877-41C3-B46E-CF057C562023}
@@ -357,7 +362,10 @@ void onUARTReceive(char* buffer, int bufferLength) {
 
 		CBUF_Push(txBuffer, buffer[i]);
 
+#if !ENABLE_SENDING_UART_OVER_AIR
+// if we're not consuming buffer in the next section, just consume immediately so our test doesn't overflow the buffer!
 CBUF_Pop(txBuffer);
+#endif
 		ble_trace0(":");
 	 }
 	ble_trace0("\n");
@@ -367,21 +375,23 @@ CBUF_Pop(txBuffer);
 	int len = CBUF_Len(txBuffer);
 	ble_trace1("buffer: %d\n", len);
 	if (len > 1) {// && len % 3 == 0) { // assumes MIDI messages are always 3 in length
-	 	 // store the current buffer message in the characteristic
-//		BLEPROFILE_DB_PDU db_pdu;
-//
-//		bleprofile_ReadHandle(HANDLE_HELLO_SENSOR_VALUE_NOTIFY, &db_pdu);
-//		for (i = 0; i < db_pdu.len; i++) {
-//			if (!CBUF_IsEmpty(txBuffer)) {
-//				db_pdu.pdu[i] = CBUF_Pop(txBuffer);
-//			}
-//			else {
-//				// fill the remaining empty space with 0s???
-//				db_pdu.pdu[i] = 0;
-//			}
-//		}
-//		bleprofile_WriteHandle(HANDLE_HELLO_SENSOR_VALUE_NOTIFY, &db_pdu);
 
+#if ENABLE_SENDING_UART_OVER_AIR
+		// store the current buffer message in the characteristic
+		BLEPROFILE_DB_PDU db_pdu;
+
+		bleprofile_ReadHandle(HANDLE_HELLO_SENSOR_VALUE_NOTIFY, &db_pdu);
+		for (i = 0; i < db_pdu.len; i++) {
+			if (!CBUF_IsEmpty(txBuffer)) {
+				db_pdu.pdu[i] = CBUF_Pop(txBuffer);
+			}
+			else {
+				// fill the remaining empty space with 0s???
+				db_pdu.pdu[i] = 0;
+			}
+		}
+		bleprofile_WriteHandle(HANDLE_HELLO_SENSOR_VALUE_NOTIFY, &db_pdu);
+#endif
 		hello_sensor_start_send_message();
 	 }
 }
