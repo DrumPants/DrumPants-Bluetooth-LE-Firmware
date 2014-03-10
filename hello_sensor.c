@@ -57,7 +57,6 @@
 // (this code doesn't work)
 #define ENABLE_SENDING_UART_OVER_AIR 0
 
-
 // Please note that all UUIDs need to be reversed when publishing in the database
 
 // {1B7E8251-2877-41C3-B46E-CF057C562023}
@@ -351,10 +350,10 @@ volatile struct
 
 void onUARTReceive(char* buffer, int bufferLength) {
 	UINT8 i;
-	ble_trace1("onUARTReceive len: %d data:", bufferLength);
+	ble_trace1("\nonUARTReceive len: %d data:\n", bufferLength);
 
 	for (i = 0; i < bufferLength; i++) {
-		ble_trace1("- %X", buffer[i]);
+		ble_trace1("::%X", buffer[i]);
 
 		if (CBUF_IsFull(txBuffer)) {
 			break;
@@ -371,12 +370,12 @@ CBUF_Pop(txBuffer);
 	ble_trace0("\n");
 
 
+#if ENABLE_SENDING_UART_OVER_AIR
 	 // only send valid MIDI messages - UART is splitting them into 1 byte then 2 byte packets
 	int len = CBUF_Len(txBuffer);
 	ble_trace1("buffer: %d\n", len);
 	if (len > 1) {// && len % 3 == 0) { // assumes MIDI messages are always 3 in length
 
-#if ENABLE_SENDING_UART_OVER_AIR
 		// store the current buffer message in the characteristic
 		BLEPROFILE_DB_PDU db_pdu;
 
@@ -391,9 +390,10 @@ CBUF_Pop(txBuffer);
 			}
 		}
 		bleprofile_WriteHandle(HANDLE_HELLO_SENSOR_VALUE_NOTIFY, &db_pdu);
-#endif
+
 		hello_sensor_start_send_message();
 	 }
+#endif
 }
 
 
@@ -594,12 +594,13 @@ void hello_sensor_timeout(UINT32 arg)
 
     application_send_bytes(msg, len);
 
-
+#if !ENABLE_PUART_INTERRUPT_CALLBACK
     // read bytes
     UINT8 buffer[16];
     UINT32 bytesRead = application_receive_bytes(&buffer, 16);
 
     ble_trace1("read %d bytes from UART:\n", bytesRead);
+#endif
 
 //	if (!puart_checkRxdPortPin()) {
 //

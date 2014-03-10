@@ -8,6 +8,7 @@
 
 #include "puart.h"
 #include "platform.h"
+#include "devicelpm.h"
 
 #include "uart_one_wire.h"
 
@@ -21,6 +22,15 @@ INT32 application_puart_interrupt_callback(void* unused);
 
 // holds the callback function when a packet is read.
 FUNC_ON_UART_RECEIVE onReceiveCB;
+
+
+// Callback called by the FW when ready to sleep/deep-sleep. Disable both by returning 0
+// so the UART will always receive bytes.
+UINT32 ws_upgrade_uart_device_lpm_queriable(LowPowerModePollType type, UINT32 context)
+{
+	// Disable sleep.
+	return 0;
+}
 
 /***
  * Inits the PUART with the given RX callback.
@@ -51,7 +61,7 @@ The following lines enable interrupt when one (or more) bytes
 are received over the peripheral uart interface. This is optional.
 In the absence of this, the app is expected to poll the peripheral uart to pull out received bytes.
 	 */
-#ifdef ENABLE_PUART_INTERRUPT_CALLBACK
+#if ENABLE_PUART_INTERRUPT_CALLBACK
 	// clear interrupt
 	P_UART_INT_CLEAR(P_UART_ISR_RX_AFF_MASK);
 
@@ -72,6 +82,16 @@ In the absence of this, the app is expected to poll the peripheral uart to pull 
 
 	/* END - puart interrupt */
 #endif
+
+
+	// disable sleep mode: the PUART does not work if the device is asleep
+	devlpm_init();
+
+	// Since we are not using any flow control, disable sleep when download starts.
+	// If HW flow control is configured or app uses its own flow control mechanism,
+	// this is not required.
+	devlpm_registerForLowPowerQueries(ws_upgrade_uart_device_lpm_queriable, 0);
+
 
 	// print a string message assuming that the device connected
 	// to the peripheral uart can handle this string.

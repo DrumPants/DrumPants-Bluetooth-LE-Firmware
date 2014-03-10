@@ -14,6 +14,11 @@
 #define PUART_BAUD_RATE 115200
 
 
+// if 1, the UART will call the callback every time it receives bytes
+// if 0, this app will poll the UART to read bytes.
+#define ENABLE_PUART_INTERRUPT_CALLBACK 1
+
+
 // the callback function when a packet is read.
 // - char* buffer : the buffer (no bigger than 16 bytes)
 // - int bufferLength : length of buffer (min: 1, max: 16)
