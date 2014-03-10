@@ -353,7 +353,7 @@ void onUARTReceive(char* buffer, int bufferLength) {
 	ble_trace1("\nonUARTReceive len: %d data:\n", bufferLength);
 
 	for (i = 0; i < bufferLength; i++) {
-		ble_trace1("::%X", buffer[i]);
+		ble_trace1("::%hhX", buffer[i]);
 
 		if (CBUF_IsFull(txBuffer)) {
 			break;
@@ -361,16 +361,16 @@ void onUARTReceive(char* buffer, int bufferLength) {
 
 		CBUF_Push(txBuffer, buffer[i]);
 
-#if !ENABLE_SENDING_UART_OVER_AIR
-// if we're not consuming buffer in the next section, just consume immediately so our test doesn't overflow the buffer!
-CBUF_Pop(txBuffer);
-#endif
-		ble_trace0(":");
+		ble_trace0("-\n");
 	 }
 	ble_trace0("\n");
 
 
-#if ENABLE_SENDING_UART_OVER_AIR
+#if !ENABLE_SENDING_UART_OVER_AIR
+	while (CBUF_Len(txBuffer) > 0) {
+		CBUF_Pop(txBuffer);
+	}
+#else
 	 // only send valid MIDI messages - UART is splitting them into 1 byte then 2 byte packets
 	int len = CBUF_Len(txBuffer);
 	ble_trace1("buffer: %d\n", len);
