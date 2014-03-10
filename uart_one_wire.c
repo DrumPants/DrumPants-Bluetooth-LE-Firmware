@@ -73,7 +73,8 @@ In the absence of this, the app is expected to poll the peripheral uart to pull 
 	puart_print("Application initialization complete!");
 }
 
-// Sends out a stream of bytes to the peer device on the peripheral uart interface. // buffer - The buffer to send to the peer device.
+// Sends out a stream of bytes to the peer device on the peripheral uart interface.
+// buffer - The buffer to send to the peer device.
 // length - The number of bytes from buffer to send.
 // Returns The number of bytes that were sent.
 UINT32 application_send_bytes(UINT8* buffer, UINT32 length) {
@@ -84,7 +85,8 @@ UINT32 application_send_bytes(UINT8* buffer, UINT32 length) {
 		return 0;
 
 	// Write out all the given bytes synchronously.
-	// If the number of bytes is > P_UART_TX_FIFO_SIZE (16) // puart_write() will block until there is space in the // HW FIFO.
+	// If the number of bytes is > P_UART_TX_FIFO_SIZE (16)
+	// puart_write() will block until there is space in the // HW FIFO.
 	while(length--)
 	{
 		puart_write(*buffer++);

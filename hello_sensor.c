@@ -46,6 +46,8 @@
 
 #include "uart_one_wire.h"
 
+#include "circular_buffer.h"
+
 
 /******************************************************
  *                      Constants
@@ -142,14 +144,14 @@ const UINT8 hello_sensor_gatt_database[]=
     // advertisement data along with 16 byte UUID.
     CHARACTERISTIC_UUID16 (0x0015, 0x0016, UUID_CHARACTERISTIC_DEVICE_NAME,
     					   LEGATTDB_CHAR_PROP_READ, LEGATTDB_PERM_READABLE, 16),
-       'H','e','l','l','o',0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,
+       'D','r','u','m','P','a','n','t','s',0x00,0x00,0x00,0x00,0x00,0x00,0x00,
 
     // Handle 0x17: characteristic Appearance, handle 0x18 characteristic value.
     // List of approved appearances is available at bluetooth.org.  Current
     // value is set to 0x200 - Generic Tag
     CHARACTERISTIC_UUID16 (0x0017, 0x0018, UUID_CHARACTERISTIC_APPEARANCE,
     					   LEGATTDB_CHAR_PROP_READ, LEGATTDB_PERM_READABLE, 2),
-        BIT16_TO_8(APPEARANCE_GENERIC_TAG),
+        BIT16_TO_8(APPEARANCE_GENERIC_HID_DEVICE),
 
     // Handle 0x28: Hello Service.
     // This is the main proprietary service of Hello Sensor.  It has 2 characteristics.
@@ -169,7 +171,7 @@ const UINT8 hello_sensor_gatt_database[]=
     CHARACTERISTIC_UUID128 (0x0029, HANDLE_HELLO_SENSOR_VALUE_NOTIFY, UUID_HELLO_CHARACTERISTIC_NOTIFY,
                            LEGATTDB_CHAR_PROP_READ | LEGATTDB_CHAR_PROP_NOTIFY | LEGATTDB_CHAR_PROP_INDICATE,
                            LEGATTDB_PERM_READABLE, 7),
-        'H','e','l','l','o',' ','0',
+        'M','I','D','I',' ',' ','0',
 
 	// Handle 0x2b: Characteristic Client Configuration Descriptor.
     // This is standard GATT characteristic descriptor.  2 byte value 0 means that
@@ -198,11 +200,11 @@ const UINT8 hello_sensor_gatt_database[]=
 
     // Handle 0x4e: characteristic Manufacturer Name, handle 0x4f characteristic value
     CHARACTERISTIC_UUID16 (0x004e, 0x004f, UUID_CHARACTERISTIC_MANUFACTURER_NAME_STRING, LEGATTDB_CHAR_PROP_READ, LEGATTDB_PERM_READABLE, 8),
-        'B','r','o','a','d','c','o','m',
+        'D','r','u','m','P','a','n','t',
 
     // Handle 0x50: characteristic Model Number, handle 0x51 characteristic value
     CHARACTERISTIC_UUID16 (0x0050, 0x0051, UUID_CHARACTERISTIC_MODEL_NUMBER_STRING, LEGATTDB_CHAR_PROP_READ, LEGATTDB_PERM_READABLE, 8),
-        '1','2','3','4',0x00,0x00,0x00,0x00,
+        '1','0','0','1',0x00,0x00,0x00,0x00,
 
     // Handle 0x52: characteristic System ID, handle 0x53 characteristic value
     CHARACTERISTIC_UUID16 (0x0052, 0x0053, UUID_CHARACTERISTIC_SYSTEM_ID, LEGATTDB_CHAR_PROP_READ, LEGATTDB_PERM_READABLE, 8),
@@ -231,7 +233,7 @@ const BLE_PROFILE_CFG hello_sensor_cfg =
     /*.low_direct_adv_interval        =*/ 0,    // seconds
     /*.high_direct_adv_duration       =*/ 0,    // seconds
     /*.low_direct_adv_duration        =*/ 0,    // seconds
-    /*.local_name                     =*/ "Hello",        // [LOCAL_NAME_LEN_MAX];
+    /*.local_name                     =*/ "DrumPants",        // [LOCAL_NAME_LEN_MAX];
     /*.cod                            =*/ "\x00\x00\x00", // [COD_LEN];
     /*.ver                            =*/ "1.00",         // [VERSION_LEN];
     /*.encr_required                  =*/ (SECURITY_ENABLED | SECURITY_REQUEST),    // data encrypted and device sends security request on every connection
@@ -303,7 +305,7 @@ UINT32 	hello_sensor_timer_count        = 0;
 UINT32 	hello_sensor_fine_timer_count   = 0;
 UINT16 	hello_sensor_connection_handle	= 0;	// HCI handle of connection, not zero when connected
 BD_ADDR hello_sensor_remote_addr        = {0, 0, 0, 0, 0, 0};
-UINT8 	hello_sensor_indication_sent    = 0;	// indication sent, waiting for ack
+INT8 	hello_sensor_indication_sent    = 0;	// indication sent, waiting for ack
 UINT8   hello_sensor_num_to_write       = 0;  	// Number of messages we need to send
 UINT8   hello_sensor_stay_connected		= 1;	// Change that to 0 to disconnect when all messages are sent
 
@@ -328,11 +330,59 @@ APPLICATION_INIT()
 /******************************************************
  * UART
 ******************************************************/
-void onUARTReceive(char* buffer, int bufferLength) {
-	 ble_trace1("onUARTReceive len: %d\n", bufferLength);
 
-	 if (bufferLength > 1) { // only send valid MIDI messages - UART is splitting them into 1 byte then 2 byte packets
-	 	 hello_sensor_start_send_message();
+
+// make a big buffer just in case. this shouldn't really actually be longer than 16 bytes at a longshot.
+#define txBuffer_SIZE 128
+
+volatile struct
+{
+   UINT8     m_getIdx;
+   UINT8     m_putIdx;
+   UINT8     m_entry[ txBuffer_SIZE ];
+
+} txBuffer;
+
+
+void onUARTReceive(char* buffer, int bufferLength) {
+	UINT8 i;
+	ble_trace1("onUARTReceive len: %d data:", bufferLength);
+
+	for (i = 0; i < bufferLength; i++) {
+		ble_trace1("- %X", buffer[i]);
+
+		if (CBUF_IsFull(txBuffer)) {
+			break;
+		}
+
+		CBUF_Push(txBuffer, buffer[i]);
+
+//CBUF_Pop(txBuffer);
+		ble_trace0(":");
+	 }
+	ble_trace0("\n");
+
+
+	 // only send valid MIDI messages - UART is splitting them into 1 byte then 2 byte packets
+	int len = CBUF_Len(txBuffer);
+	ble_trace1("buffer: %d\n", len);
+	if (len > 1) {// && len % 3 == 0) { // assumes MIDI messages are always 3 in length
+	 	 // store the current buffer message in the characteristic
+		BLEPROFILE_DB_PDU db_pdu;
+
+		bleprofile_ReadHandle(HANDLE_HELLO_SENSOR_VALUE_NOTIFY, &db_pdu);
+		for (i = 0; i < db_pdu.len; i++) {
+			if (!CBUF_IsEmpty(txBuffer)) {
+				db_pdu.pdu[i] = CBUF_Pop(txBuffer);
+			}
+			else {
+				// fill the remaining empty space with 0s???
+				db_pdu.pdu[i] = 0;
+			}
+		}
+		bleprofile_WriteHandle(HANDLE_HELLO_SENSOR_VALUE_NOTIFY, &db_pdu);
+
+		hello_sensor_start_send_message();
 	 }
 }
 
@@ -408,6 +458,7 @@ void hello_sensor_create(void)
 
 
     // init the UART
+    CBUF_Init(txBuffer);
     uart_init(&onUARTReceive);
 }
 
@@ -618,6 +669,12 @@ void hello_sensor_encryption_changed(HCI_EVT_HDR *evt)
 
 UINT8 midiTestMsg[] = {0x90, 0x02, 0x0E};
 
+
+
+
+
+
+
 //
 // Check if client has registered for notification and indication and send message if appropriate
 //
@@ -638,10 +695,10 @@ void hello_sensor_send_message(void)
 
     if (hello_sensor_hostinfo.characteristic_client_configuration & CCC_NOTIFICATION)
     {
-        //bleprofile_sendNotification(HANDLE_HELLO_SENSOR_VALUE_NOTIFY, (UINT8 *)db_pdu.pdu, db_pdu.len);
+        bleprofile_sendNotification(HANDLE_HELLO_SENSOR_VALUE_NOTIFY, (UINT8 *)db_pdu.pdu, db_pdu.len);
 
         // send midi instead
-    	bleprofile_sendNotification(HANDLE_HELLO_SENSOR_VALUE_NOTIFY, midiTestMsg, 3);
+    	//bleprofile_sendNotification(HANDLE_HELLO_SENSOR_VALUE_NOTIFY, midiTestMsg, 3);
 
         ble_trace0("sending notification to client\n");
     }
