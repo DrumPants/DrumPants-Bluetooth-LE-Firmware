@@ -55,7 +55,7 @@
 
 // set to 1 to try to send notifications every time we receive something on the P_UART.
 // (this code doesn't work)
-#define ENABLE_SENDING_UART_OVER_AIR 0
+#define ENABLE_SENDING_UART_OVER_AIR 1
 
 // Please note that all UUIDs need to be reversed when publishing in the database
 
@@ -367,6 +367,7 @@ void onUARTReceive(char* buffer, int bufferLength) {
 
 
 #if !ENABLE_SENDING_UART_OVER_AIR
+	// need to consume the buffer so we don't overflow
 	while (CBUF_Len(txBuffer) > 0) {
 		CBUF_Pop(txBuffer);
 	}
@@ -378,19 +379,22 @@ void onUARTReceive(char* buffer, int bufferLength) {
 
 		// store the current buffer message in the characteristic
 		BLEPROFILE_DB_PDU db_pdu;
-
 		bleprofile_ReadHandle(HANDLE_HELLO_SENSOR_VALUE_NOTIFY, &db_pdu);
-		for (i = 0; i < db_pdu.len; i++) {
-			if (!CBUF_IsEmpty(txBuffer)) {
-				db_pdu.pdu[i] = CBUF_Pop(txBuffer);
-			}
-			else {
-				// fill the remaining empty space with 0s???
-				db_pdu.pdu[i] = 0;
+
+		// send the exact amount of bytes possible
+		int i = 0;
+		while(!CBUF_IsEmpty(txBuffer)) {
+			db_pdu.pdu[i] = CBUF_Pop(txBuffer);
+
+			if (++i > BLE_MAX_PACKET_LENGTH) {
+				break;
 			}
 		}
+		db_pdu.len = i;
+
 		bleprofile_WriteHandle(HANDLE_HELLO_SENSOR_VALUE_NOTIFY, &db_pdu);
 
+		// send right away! this probably needs to be on a timer instead.
 		hello_sensor_start_send_message();
 	 }
 #endif
@@ -602,14 +606,6 @@ void hello_sensor_timeout(UINT32 arg)
     ble_trace1("read %d bytes from UART:\n", bytesRead);
 #endif
 
-//	if (!puart_checkRxdPortPin()) {
-//
-//		ble_trace0("WARNING: PUART RX misconfigured");
-//	}
-//	if (!puart_checkTxdPortPin()) {
-//
-//		ble_trace0("WARNING: PUART TX misconfigured");
-//	}
 }
 
 void hello_sensor_fine_timeout(UINT32 arg)
