@@ -54,8 +54,10 @@
  ******************************************************/
 
 // set to 1 to try to send notifications every time we receive something on the P_UART.
-// (this code doesn't work)
 #define ENABLE_SENDING_UART_OVER_AIR 1
+
+// set to 1 to send periodic notifications for testing
+#define SEND_DEBUG_HEARTBEAT 0
 
 // Please note that all UUIDs need to be reversed when publishing in the database
 
@@ -203,8 +205,8 @@ const UINT8 hello_sensor_gatt_database[]=
     PRIMARY_SERVICE_UUID16 (0x004d, UUID_SERVICE_DEVICE_INFORMATION),
 
     // Handle 0x4e: characteristic Manufacturer Name, handle 0x4f characteristic value
-    CHARACTERISTIC_UUID16 (0x004e, 0x004f, UUID_CHARACTERISTIC_MANUFACTURER_NAME_STRING, LEGATTDB_CHAR_PROP_READ, LEGATTDB_PERM_READABLE, 8),
-        'D','r','u','m','P','a','n','t',
+    CHARACTERISTIC_UUID16 (0x004e, 0x004f, UUID_CHARACTERISTIC_MANUFACTURER_NAME_STRING, LEGATTDB_CHAR_PROP_READ, LEGATTDB_PERM_READABLE, 9),
+        'D','r','u','m','P','a','n','t','s',
 
     // Handle 0x50: characteristic Model Number, handle 0x51 characteristic value
     CHARACTERISTIC_UUID16 (0x0050, 0x0051, UUID_CHARACTERISTIC_MODEL_NUMBER_STRING, LEGATTDB_CHAR_PROP_READ, LEGATTDB_PERM_READABLE, 8),
@@ -581,6 +583,11 @@ void hello_sensor_timeout(UINT32 arg)
         break;
     }
 
+#if SEND_DEBUG_HEARTBEAT
+    ble_trace0("Send heartbeat\n");
+    hello_sensor_start_send_message();
+
+#endif
 
     // test UART
     //char* msg = "Got: xxxx";
@@ -598,7 +605,7 @@ void hello_sensor_timeout(UINT32 arg)
 
     application_send_bytes(msg, len);
 
-#if !ENABLE_PUART_INTERRUPT_CALLBACK
+#if ENABLE_PUART_INTERRUPT_CALLBACK > 0
     // read bytes
     UINT8 buffer[16];
     UINT32 bytesRead = application_receive_bytes(&buffer, 16);

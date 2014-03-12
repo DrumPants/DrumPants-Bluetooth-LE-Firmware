@@ -27,3 +27,12 @@ This of course can be configured differently, but those are the defaults of GPIO
 Connected to an Arduino DUE:
 
 ![Photo](soldering-Arduino.jpg)
+
+
+
+Building
+-----------------
+
+You can build it without using Eclipse. Just run
+
+C:\Users\tyler\Documents\WICED\WICED-Smart-SDK-1.1.0\WICED-Smart-SDK>make.exe RAM.hello_sensor-BCM920732TAG_Q32 download UART=COM4
