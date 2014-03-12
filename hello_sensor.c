@@ -113,7 +113,7 @@ static void hello_sensor_indication_cfm( void );
 static void hello_sensor_interrupt_handler( UINT8 value );
 extern void bleprofile_appTimerCb( UINT32 arg );
 
-static void hello_sensor_start_send_message();
+static void hello_sensor_start_send_message_sized(UINT8 msgLen);
 
 /******************************************************
  *               Variables Definitions
@@ -177,7 +177,7 @@ const UINT8 hello_sensor_gatt_database[]=
     CHARACTERISTIC_UUID128 (0x0029, HANDLE_HELLO_SENSOR_VALUE_NOTIFY, UUID_HELLO_CHARACTERISTIC_NOTIFY,
                            LEGATTDB_CHAR_PROP_READ | LEGATTDB_CHAR_PROP_NOTIFY | LEGATTDB_CHAR_PROP_INDICATE,
                            LEGATTDB_PERM_READABLE, 7),
-        'M','I','D','I',' ',' ','0',
+        0x00,0x00,0x00,0x00,0x00,0x00,0x00,
 
 	// Handle 0x2b: Characteristic Client Configuration Descriptor.
     // This is standard GATT characteristic descriptor.  2 byte value 0 means that
@@ -394,10 +394,13 @@ void onUARTReceive(char* buffer, int bufferLength) {
 		}
 		db_pdu.len = i;
 
-		bleprofile_WriteHandle(HANDLE_HELLO_SENSOR_VALUE_NOTIFY, &db_pdu);
+		int error = bleprofile_WriteHandle(HANDLE_HELLO_SENSOR_VALUE_NOTIFY, &db_pdu);
+		if (error) {
+			ble_trace2("ERROR writing %d byte notification. Code: %d\n", db_pdu.len, error);
+		}
 
 		// send right away! this probably needs to be on a timer instead.
-		hello_sensor_start_send_message();
+		hello_sensor_start_send_message_sized(i);
 	 }
 #endif
 }
@@ -722,10 +725,7 @@ UINT8 midiTestMsg[] = {0x90, 0x02, 0x0E};
 
 
 
-//
-// Check if client has registered for notification and indication and send message if appropriate
-//
-void hello_sensor_send_message(void)
+void hello_sensor_send_message_sized(UINT8 msgLen)
 {
     BLEPROFILE_DB_PDU db_pdu;
 
@@ -738,29 +738,43 @@ void hello_sensor_send_message(void)
 
     // Read value of the characteristic to send from the GATT DB.
     bleprofile_ReadHandle(HANDLE_HELLO_SENSOR_VALUE_NOTIFY, &db_pdu);
-    ble_tracen((char *)db_pdu.pdu, db_pdu.len);
+    if (msgLen == 0 || msgLen > db_pdu.len) {
+    	msgLen = db_pdu.len;
+    }
+    ble_tracen((char *)db_pdu.pdu, msgLen);
 
     if (hello_sensor_hostinfo.characteristic_client_configuration & CCC_NOTIFICATION)
     {
-        bleprofile_sendNotification(HANDLE_HELLO_SENSOR_VALUE_NOTIFY, (UINT8 *)db_pdu.pdu, db_pdu.len);
+        bleprofile_sendNotification(HANDLE_HELLO_SENSOR_VALUE_NOTIFY, (UINT8 *)db_pdu.pdu, msgLen);
 
         // send midi instead
     	//bleprofile_sendNotification(HANDLE_HELLO_SENSOR_VALUE_NOTIFY, midiTestMsg, 3);
 
-        ble_trace0("sending notification to client\n");
+        ble_trace1("sending notification to client: %d bytes\n", msgLen);
     }
     else
     {
         if (!hello_sensor_indication_sent)
         {
             hello_sensor_indication_sent = TRUE;
-            bleprofile_sendIndication(HANDLE_HELLO_SENSOR_VALUE_NOTIFY, (UINT8 *)db_pdu.pdu, db_pdu.len, hello_sensor_indication_cfm);
+            bleprofile_sendIndication(HANDLE_HELLO_SENSOR_VALUE_NOTIFY, (UINT8 *)db_pdu.pdu, msgLen, hello_sensor_indication_cfm);
 
 
             ble_trace0("sending indication to client\n");
         }
     }
 }
+
+
+//
+// Check if client has registered for notification and indication and send message if appropriate
+//
+void hello_sensor_send_message()
+{
+	hello_sensor_send_message_sized(0);
+}
+
+
 
 //
 // Process write request or command from peer device
@@ -814,6 +828,14 @@ int hello_sensor_write_handler(LEGATTDB_ENTRY_HDR *p)
     return 0;
 }
 
+/***
+ * Sends a message stored in the characteristic.
+ *
+ */
+void hello_sensor_start_send_message(void) {
+	hello_sensor_start_send_message_sized(0);
+}
+
 // Three Interrupt inputs (Buttons) can be handled here.
 // If the following value == 1, Button is pressed. Different than initial value.
 // If the following value == 0, Button is depressed. Same as initial value.
@@ -841,7 +863,13 @@ void hello_sensor_interrupt_handler(UINT8 value)
     hello_sensor_start_send_message();
 }
 
-void hello_sensor_start_send_message() {
+/***
+ * Sends a message stored in the characteristic.
+ *
+ * @param msgLen length of the message to send.
+ * if not 0, this overrides sending all the data in the fixed-size characteristic PDU
+ */
+void hello_sensor_start_send_message_sized(UINT8 msgLen) {
     // remember how many messages we need to send
     hello_sensor_num_to_write++;
 
@@ -862,7 +890,7 @@ void hello_sensor_start_send_message() {
 	while ((hello_sensor_num_to_write != 0) && !hello_sensor_indication_sent)
 	{
 		hello_sensor_num_to_write--;
-		hello_sensor_send_message();
+		hello_sensor_send_message_sized(msgLen);
 	}
 
     // if we sent all messages, start connection idle timer to disconnect
@@ -871,6 +899,7 @@ void hello_sensor_start_send_message() {
         bleprofile_StartConnIdleTimer(bleprofile_p_cfg->con_idle_timeout, bleprofile_appTimerCb);
     }
 }
+
 
 // process indication confirmation.  if client wanted us to use indication instead of notifications
 // we have to wait for confirmation after every message sent.  For example if user pushed button
