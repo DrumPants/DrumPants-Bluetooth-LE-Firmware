@@ -176,8 +176,8 @@ const UINT8 hello_sensor_gatt_database[]=
     // of the macro should be used.
     CHARACTERISTIC_UUID128 (0x0029, HANDLE_HELLO_SENSOR_VALUE_NOTIFY, UUID_HELLO_CHARACTERISTIC_NOTIFY,
                            LEGATTDB_CHAR_PROP_READ | LEGATTDB_CHAR_PROP_NOTIFY | LEGATTDB_CHAR_PROP_INDICATE,
-                           LEGATTDB_PERM_READABLE, 7),
-        0x00,0x00,0x00,0x00,0x00,0x00,0x00,
+                           LEGATTDB_PERM_READABLE, 16),
+        0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,
 
 	// Handle 0x2b: Characteristic Client Configuration Descriptor.
     // This is standard GATT characteristic descriptor.  2 byte value 0 means that
