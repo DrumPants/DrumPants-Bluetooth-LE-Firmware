@@ -163,17 +163,16 @@ INT32 application_puart_interrupt_callback(void* unused) {
 
 	// readbytes should have number_of_bytes_read bytes of data read from puart. Do something with this.
 
-	// clear the interrupt
-	P_UART_INT_CLEAR(P_UART_ISR_RX_AFF_MASK);
-
-	// enable UART interrupt in the Main Interrupt Controller and RX Almost Full in the UART Interrupt Controller
-	P_UART_INT_ENABLE |= P_UART_ISR_RX_AFF_MASK;
-
 	// TODO: should this be after clearing the interrupt????
 	if (number_of_bytes_read > 0) {
 		onReceiveCB(readbytes, number_of_bytes_read);
 	}
 
+	// clear the interrupt
+	P_UART_INT_CLEAR(P_UART_ISR_RX_AFF_MASK);
+
+	// enable UART interrupt in the Main Interrupt Controller and RX Almost Full in the UART Interrupt Controller
+	P_UART_INT_ENABLE |= P_UART_ISR_RX_AFF_MASK;
 
 	return 0;
 }
