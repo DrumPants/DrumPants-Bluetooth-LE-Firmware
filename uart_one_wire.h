@@ -7,7 +7,7 @@
 
 
 // Use P33 for peripheral uart RX. (default GPIO_PIN_UART_RX)
-#define PUART_RX_PIN GPIO_PIN_UART_RX
+#define PUART_RX_PIN 25
 // Use P32 for peripheral uart TX. (default GPIO_PIN_UART_TX)
 #define PUART_TX_PIN 32
 
