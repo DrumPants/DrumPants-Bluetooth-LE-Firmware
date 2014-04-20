@@ -407,8 +407,9 @@ static void onUARTReceive(char* buffer, int bufferLength) {
 void send_uart_data_over_air() {
 	 // only send valid MIDI messages - UART is splitting them into 1 byte then 2 byte packets
 	int len = CBUF_Len(txBuffer);
-	ble_trace1("Sending %d bytes over air\n", len);
 	if (len > 1) {// && len % 3 == 0) { // assumes MIDI messages are always 3 in length
+
+		ble_trace1("Sending %d bytes over air\n", len);
 
 		// store the current buffer message in the characteristic
 		BLEPROFILE_DB_PDU db_pdu;
@@ -419,7 +420,7 @@ void send_uart_data_over_air() {
 		while(!CBUF_IsEmpty(txBuffer)) {
 			db_pdu.pdu[i] = CBUF_Pop(txBuffer);
 
-			if (++i > BLE_MAX_PACKET_LENGTH) {
+			if (++i >= BLE_MAX_PACKET_LENGTH) {
 				break;
 			}
 		}
