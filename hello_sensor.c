@@ -417,6 +417,13 @@ void send_uart_data_over_air() {
 
 		// send the exact amount of bytes possible
 		int i = 0;
+
+		// first add a timecode for debugging
+		db_pdu.pdu[i++] = 0xF8; // MIDI clock status (bastardized version that includes timecode)
+		db_pdu.pdu[i++] = hello_sensor_fine_timer_count % 127;
+		db_pdu.pdu[i++] = 0x0; // ios client expects 3 byte messages only
+
+
 		while(!CBUF_IsEmpty(txBuffer)) {
 			db_pdu.pdu[i] = CBUF_Pop(txBuffer);
 
@@ -797,6 +804,13 @@ void hello_sensor_send_message_sized(UINT8 msgLen)
     	msgLen = db_pdu.len;
     }
     ble_tracen((char *)db_pdu.pdu, msgLen);
+
+
+	// fill the rest with 0s, because for some reason bleprofile_sendNotification() doesn't send
+    // unless you've filled up the buffer???
+//	while (msgLen < BLE_MAX_PACKET_LENGTH) {
+//		db_pdu.pdu[msgLen++] = 0x0;
+//	}
 
     if (hello_sensor_hostinfo.characteristic_client_configuration & CCC_NOTIFICATION)
     {
