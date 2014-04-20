@@ -27,6 +27,10 @@
 #define HANDLE_HELLO_SENSOR_CLIENT_CONFIGURATION_DESCRIPTOR 0x2b
 #define HANDLE_HELLO_SENSOR_CONFIGURATION                   0x2d
 
+// the maximum length of a characteristic notification packet to send over BLE connection.
+// maximum supported is length of BLEPROFILE_DB_PDU.pdu: (LEATT_ATT_MTU-1)
+#define BLE_MAX_PACKET_LENGTH 16
+
 // Please note that all UUIDs need to be reversed when publishing in the database
 
 // {1B7E8251-2877-41C3-B46E-CF057C562023}

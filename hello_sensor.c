@@ -54,8 +54,10 @@
  ******************************************************/
 
 // set to 1 to try to send notifications every time we receive something on the P_UART.
-// (this code doesn't work)
-#define ENABLE_SENDING_UART_OVER_AIR 0
+#define ENABLE_SENDING_UART_OVER_AIR 1
+
+// set to 1 to send periodic notifications for testing
+#define SEND_DEBUG_HEARTBEAT 0
 
 // Please note that all UUIDs need to be reversed when publishing in the database
 
@@ -111,7 +113,7 @@ static void hello_sensor_indication_cfm( void );
 static void hello_sensor_interrupt_handler( UINT8 value );
 extern void bleprofile_appTimerCb( UINT32 arg );
 
-static void hello_sensor_start_send_message();
+static void hello_sensor_start_send_message_sized(UINT8 msgLen);
 
 /******************************************************
  *               Variables Definitions
@@ -174,8 +176,8 @@ const UINT8 hello_sensor_gatt_database[]=
     // of the macro should be used.
     CHARACTERISTIC_UUID128 (0x0029, HANDLE_HELLO_SENSOR_VALUE_NOTIFY, UUID_HELLO_CHARACTERISTIC_NOTIFY,
                            LEGATTDB_CHAR_PROP_READ | LEGATTDB_CHAR_PROP_NOTIFY | LEGATTDB_CHAR_PROP_INDICATE,
-                           LEGATTDB_PERM_READABLE, 7),
-        'M','I','D','I',' ',' ','0',
+                           LEGATTDB_PERM_READABLE, 16),
+        0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,
 
 	// Handle 0x2b: Characteristic Client Configuration Descriptor.
     // This is standard GATT characteristic descriptor.  2 byte value 0 means that
@@ -203,8 +205,8 @@ const UINT8 hello_sensor_gatt_database[]=
     PRIMARY_SERVICE_UUID16 (0x004d, UUID_SERVICE_DEVICE_INFORMATION),
 
     // Handle 0x4e: characteristic Manufacturer Name, handle 0x4f characteristic value
-    CHARACTERISTIC_UUID16 (0x004e, 0x004f, UUID_CHARACTERISTIC_MANUFACTURER_NAME_STRING, LEGATTDB_CHAR_PROP_READ, LEGATTDB_PERM_READABLE, 8),
-        'D','r','u','m','P','a','n','t',
+    CHARACTERISTIC_UUID16 (0x004e, 0x004f, UUID_CHARACTERISTIC_MANUFACTURER_NAME_STRING, LEGATTDB_CHAR_PROP_READ, LEGATTDB_PERM_READABLE, 9),
+        'D','r','u','m','P','a','n','t','s',
 
     // Handle 0x50: characteristic Model Number, handle 0x51 characteristic value
     CHARACTERISTIC_UUID16 (0x0050, 0x0051, UUID_CHARACTERISTIC_MODEL_NUMBER_STRING, LEGATTDB_CHAR_PROP_READ, LEGATTDB_PERM_READABLE, 8),
@@ -367,6 +369,7 @@ void onUARTReceive(char* buffer, int bufferLength) {
 
 
 #if !ENABLE_SENDING_UART_OVER_AIR
+	// need to consume the buffer so we don't overflow
 	while (CBUF_Len(txBuffer) > 0) {
 		CBUF_Pop(txBuffer);
 	}
@@ -378,20 +381,26 @@ void onUARTReceive(char* buffer, int bufferLength) {
 
 		// store the current buffer message in the characteristic
 		BLEPROFILE_DB_PDU db_pdu;
-
 		bleprofile_ReadHandle(HANDLE_HELLO_SENSOR_VALUE_NOTIFY, &db_pdu);
-		for (i = 0; i < db_pdu.len; i++) {
-			if (!CBUF_IsEmpty(txBuffer)) {
-				db_pdu.pdu[i] = CBUF_Pop(txBuffer);
-			}
-			else {
-				// fill the remaining empty space with 0s???
-				db_pdu.pdu[i] = 0;
+
+		// send the exact amount of bytes possible
+		int i = 0;
+		while(!CBUF_IsEmpty(txBuffer)) {
+			db_pdu.pdu[i] = CBUF_Pop(txBuffer);
+
+			if (++i > BLE_MAX_PACKET_LENGTH) {
+				break;
 			}
 		}
-		bleprofile_WriteHandle(HANDLE_HELLO_SENSOR_VALUE_NOTIFY, &db_pdu);
+		db_pdu.len = i;
 
-		hello_sensor_start_send_message();
+		int error = bleprofile_WriteHandle(HANDLE_HELLO_SENSOR_VALUE_NOTIFY, &db_pdu);
+		if (error) {
+			ble_trace2("ERROR writing %d byte notification. Code: %d\n", db_pdu.len, error);
+		}
+
+		// send right away! this probably needs to be on a timer instead.
+		hello_sensor_start_send_message_sized(i);
 	 }
 #endif
 }
@@ -577,6 +586,11 @@ void hello_sensor_timeout(UINT32 arg)
         break;
     }
 
+#if SEND_DEBUG_HEARTBEAT
+    ble_trace0("Send heartbeat\n");
+    hello_sensor_start_send_message();
+
+#endif
 
     // test UART
     //char* msg = "Got: xxxx";
@@ -594,7 +608,7 @@ void hello_sensor_timeout(UINT32 arg)
 
     application_send_bytes(msg, len);
 
-#if !ENABLE_PUART_INTERRUPT_CALLBACK
+#if ENABLE_PUART_INTERRUPT_CALLBACK > 0
     // read bytes
     UINT8 buffer[16];
     UINT32 bytesRead = application_receive_bytes(&buffer, 16);
@@ -602,14 +616,6 @@ void hello_sensor_timeout(UINT32 arg)
     ble_trace1("read %d bytes from UART:\n", bytesRead);
 #endif
 
-//	if (!puart_checkRxdPortPin()) {
-//
-//		ble_trace0("WARNING: PUART RX misconfigured");
-//	}
-//	if (!puart_checkTxdPortPin()) {
-//
-//		ble_trace0("WARNING: PUART TX misconfigured");
-//	}
 }
 
 void hello_sensor_fine_timeout(UINT32 arg)
@@ -719,10 +725,7 @@ UINT8 midiTestMsg[] = {0x90, 0x02, 0x0E};
 
 
 
-//
-// Check if client has registered for notification and indication and send message if appropriate
-//
-void hello_sensor_send_message(void)
+void hello_sensor_send_message_sized(UINT8 msgLen)
 {
     BLEPROFILE_DB_PDU db_pdu;
 
@@ -735,29 +738,43 @@ void hello_sensor_send_message(void)
 
     // Read value of the characteristic to send from the GATT DB.
     bleprofile_ReadHandle(HANDLE_HELLO_SENSOR_VALUE_NOTIFY, &db_pdu);
-    ble_tracen((char *)db_pdu.pdu, db_pdu.len);
+    if (msgLen == 0 || msgLen > db_pdu.len) {
+    	msgLen = db_pdu.len;
+    }
+    ble_tracen((char *)db_pdu.pdu, msgLen);
 
     if (hello_sensor_hostinfo.characteristic_client_configuration & CCC_NOTIFICATION)
     {
-        bleprofile_sendNotification(HANDLE_HELLO_SENSOR_VALUE_NOTIFY, (UINT8 *)db_pdu.pdu, db_pdu.len);
+        bleprofile_sendNotification(HANDLE_HELLO_SENSOR_VALUE_NOTIFY, (UINT8 *)db_pdu.pdu, msgLen);
 
         // send midi instead
     	//bleprofile_sendNotification(HANDLE_HELLO_SENSOR_VALUE_NOTIFY, midiTestMsg, 3);
 
-        ble_trace0("sending notification to client\n");
+        ble_trace1("sending notification to client: %d bytes\n", msgLen);
     }
     else
     {
         if (!hello_sensor_indication_sent)
         {
             hello_sensor_indication_sent = TRUE;
-            bleprofile_sendIndication(HANDLE_HELLO_SENSOR_VALUE_NOTIFY, (UINT8 *)db_pdu.pdu, db_pdu.len, hello_sensor_indication_cfm);
+            bleprofile_sendIndication(HANDLE_HELLO_SENSOR_VALUE_NOTIFY, (UINT8 *)db_pdu.pdu, msgLen, hello_sensor_indication_cfm);
 
 
             ble_trace0("sending indication to client\n");
         }
     }
 }
+
+
+//
+// Check if client has registered for notification and indication and send message if appropriate
+//
+void hello_sensor_send_message()
+{
+	hello_sensor_send_message_sized(0);
+}
+
+
 
 //
 // Process write request or command from peer device
@@ -811,6 +828,14 @@ int hello_sensor_write_handler(LEGATTDB_ENTRY_HDR *p)
     return 0;
 }
 
+/***
+ * Sends a message stored in the characteristic.
+ *
+ */
+void hello_sensor_start_send_message(void) {
+	hello_sensor_start_send_message_sized(0);
+}
+
 // Three Interrupt inputs (Buttons) can be handled here.
 // If the following value == 1, Button is pressed. Different than initial value.
 // If the following value == 0, Button is depressed. Same as initial value.
@@ -838,7 +863,13 @@ void hello_sensor_interrupt_handler(UINT8 value)
     hello_sensor_start_send_message();
 }
 
-void hello_sensor_start_send_message() {
+/***
+ * Sends a message stored in the characteristic.
+ *
+ * @param msgLen length of the message to send.
+ * if not 0, this overrides sending all the data in the fixed-size characteristic PDU
+ */
+void hello_sensor_start_send_message_sized(UINT8 msgLen) {
     // remember how many messages we need to send
     hello_sensor_num_to_write++;
 
@@ -859,7 +890,7 @@ void hello_sensor_start_send_message() {
 	while ((hello_sensor_num_to_write != 0) && !hello_sensor_indication_sent)
 	{
 		hello_sensor_num_to_write--;
-		hello_sensor_send_message();
+		hello_sensor_send_message_sized(msgLen);
 	}
 
     // if we sent all messages, start connection idle timer to disconnect
@@ -868,6 +899,7 @@ void hello_sensor_start_send_message() {
         bleprofile_StartConnIdleTimer(bleprofile_p_cfg->con_idle_timeout, bleprofile_appTimerCb);
     }
 }
+
 
 // process indication confirmation.  if client wanted us to use indication instead of notifications
 // we have to wait for confirmation after every message sent.  For example if user pushed button
