@@ -53,11 +53,22 @@
  *                      Constants
  ******************************************************/
 
-// set to 1 to try to send notifications every time we receive something on the P_UART.
+// set to 1 to send notifications every time we receive something on the P_UART.
 #define ENABLE_SENDING_UART_OVER_AIR 1
+
+// if 1, forwards UART data on a consistent interval instead of as soon as it is received.
+#define SEND_BLE_ON_INTERVAL 1
+
+// don't use an interrupt when we receive bytes, just poll for them on the fine timer.
+// NOTE: this may not work - UART buffer could overflow since we only check every 20ms.
+#define UART_POLLING_ONLY 0
 
 // set to 1 to send periodic notifications for testing
 #define SEND_DEBUG_HEARTBEAT 0
+
+
+// if 1, adds a timecode to every BLE packet for debugging
+#define ENABLE_TIMECODE_HEADER 0
 
 // Please note that all UUIDs need to be reversed when publishing in the database
 
@@ -114,6 +125,7 @@ static void hello_sensor_interrupt_handler( UINT8 value );
 extern void bleprofile_appTimerCb( UINT32 arg );
 
 static void hello_sensor_start_send_message_sized(UINT8 msgLen);
+static void send_uart_data_over_air();
 
 /******************************************************
  *               Variables Definitions
@@ -176,7 +188,7 @@ const UINT8 hello_sensor_gatt_database[]=
     // of the macro should be used.
     CHARACTERISTIC_UUID128 (0x0029, HANDLE_HELLO_SENSOR_VALUE_NOTIFY, UUID_HELLO_CHARACTERISTIC_NOTIFY,
                            LEGATTDB_CHAR_PROP_READ | LEGATTDB_CHAR_PROP_NOTIFY | LEGATTDB_CHAR_PROP_INDICATE,
-                           LEGATTDB_PERM_READABLE, 16),
+                           LEGATTDB_PERM_READABLE, BLE_MAX_PACKET_LENGTH),
         0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,
 
 	// Handle 0x2b: Characteristic Client Configuration Descriptor.
@@ -228,7 +240,7 @@ const UINT8 hello_sensor_gatt_database[]=
 
 const BLE_PROFILE_CFG hello_sensor_cfg =
 {
-    /*.fine_timer_interval            =*/ 1000, // ms
+    /*.fine_timer_interval            =*/ 20, // ms
     /*.default_adv                    =*/ 4,    // HIGH_UNDIRECTED_DISCOVERABLE
     /*.button_adv_toggle              =*/ 0,    // pairing button make adv toggle (if 1) or always on (if 0)
     /*.high_undirect_adv_interval     =*/ 32,   // slots
@@ -245,6 +257,9 @@ const BLE_PROFILE_CFG hello_sensor_cfg =
     /*.encr_required                  =*/ (SECURITY_ENABLED | SECURITY_REQUEST),    // data encrypted and device sends security request on every connection
     /*.disc_required                  =*/ 0,    // if 1, disconnection after confirmation
     /*.test_enable                    =*/ 1,    // TEST MODE is enabled when 1
+
+    // TODO WTF IS TEST MODE!!!!!
+
     /*.tx_power_level                 =*/ 0x04, // dbm
     /*.con_idle_timeout               =*/ 3,    // second  0-> no timeout
     /*.powersave_timeout              =*/ 0,    // second  0-> no timeout
@@ -315,6 +330,9 @@ INT8 	hello_sensor_indication_sent    = 0;	// indication sent, waiting for ack
 UINT8   hello_sensor_num_to_write       = 0;  	// Number of messages we need to send
 UINT8   hello_sensor_stay_connected		= 1;	// Change that to 0 to disconnect when all messages are sent
 
+// for UART debugging
+int countBytesRead = 0;
+
 // NVRAM save area
 HOSTINFO hello_sensor_hostinfo;
 
@@ -350,7 +368,12 @@ volatile struct
 } txBuffer;
 
 
-void onUARTReceive(char* buffer, int bufferLength) {
+/***
+ * Saves the given bytes from the UART to the buffer to send to BLE.
+ *
+ * Returns the amount of bytes read.
+ */
+static inline UINT8 saveUARTDataToBuffer(char* buffer, int bufferLength) {
 	UINT8 i;
 	ble_trace1("\nonUARTReceive len: %d data:\n", bufferLength);
 
@@ -367,17 +390,30 @@ void onUARTReceive(char* buffer, int bufferLength) {
 	 }
 	ble_trace0("\n");
 
+	return i;
+}
+
+
+static void onUARTReceive(char* buffer, int bufferLength) {
+
+	countBytesRead += saveUARTDataToBuffer(buffer, bufferLength);
 
 #if !ENABLE_SENDING_UART_OVER_AIR
 	// need to consume the buffer so we don't overflow
 	while (CBUF_Len(txBuffer) > 0) {
 		CBUF_Pop(txBuffer);
 	}
-#else
+#elif !SEND_BLE_ON_INTERVAL
+	send_uart_data_over_air();
+#endif
+}
+
+void send_uart_data_over_air() {
 	 // only send valid MIDI messages - UART is splitting them into 1 byte then 2 byte packets
 	int len = CBUF_Len(txBuffer);
-	ble_trace1("buffer: %d\n", len);
 	if (len > 1) {// && len % 3 == 0) { // assumes MIDI messages are always 3 in length
+
+		ble_trace1("Sending %d bytes over air\n", len);
 
 		// store the current buffer message in the characteristic
 		BLEPROFILE_DB_PDU db_pdu;
@@ -385,10 +421,18 @@ void onUARTReceive(char* buffer, int bufferLength) {
 
 		// send the exact amount of bytes possible
 		int i = 0;
+
+		// first add a timecode for debugging
+#if ENABLE_TIMECODE_HEADER
+		db_pdu.pdu[i++] = 0xF8; // MIDI clock status (bastardized version that includes timecode)
+		db_pdu.pdu[i++] = hello_sensor_fine_timer_count % 127;
+		db_pdu.pdu[i++] = 0x0; // ios client expects 3 byte messages only
+#endif
+
 		while(!CBUF_IsEmpty(txBuffer)) {
 			db_pdu.pdu[i] = CBUF_Pop(txBuffer);
 
-			if (++i > BLE_MAX_PACKET_LENGTH) {
+			if (++i >= BLE_MAX_PACKET_LENGTH) {
 				break;
 			}
 		}
@@ -402,8 +446,11 @@ void onUARTReceive(char* buffer, int bufferLength) {
 		// send right away! this probably needs to be on a timer instead.
 		hello_sensor_start_send_message_sized(i);
 	 }
-#endif
 }
+
+
+
+
 
 
 // Create hello sensor
@@ -478,7 +525,12 @@ void hello_sensor_create(void)
 
     // init the UART
     CBUF_Init(txBuffer);
+#if UART_POLLING_ONLY
+    // don't use an interrupt when we receive bytes, just poll for them on the fine timer.
+    uart_init(NULL);
+#else
     uart_init(&onUARTReceive);
+#endif
 }
 
 // Initialize GATT database
@@ -573,6 +625,7 @@ void hello_sensor_advertisement_stopped(void)
     }
 }
 
+
 void hello_sensor_timeout(UINT32 arg)
 {
     ble_trace1("hello_sensor_timeout:%d\n", hello_sensor_timer_count);
@@ -608,14 +661,8 @@ void hello_sensor_timeout(UINT32 arg)
 
     application_send_bytes(msg, len);
 
-#if ENABLE_PUART_INTERRUPT_CALLBACK > 0
-    // read bytes
-    UINT8 buffer[16];
-    UINT32 bytesRead = application_receive_bytes(&buffer, 16);
-
-    ble_trace1("read %d bytes from UART:\n", bytesRead);
-#endif
-
+    ble_trace1("read %d bytes from UART:\n", countBytesRead);
+    countBytesRead = 0;
 }
 
 void hello_sensor_fine_timeout(UINT32 arg)
@@ -624,8 +671,28 @@ void hello_sensor_fine_timeout(UINT32 arg)
 
     //ble_trace1("hello_sensor_fine_timeout:%d", hello_sensor_fine_timer_count);
 
+#if SEND_BLE_ON_INTERVAL
+
+	#if UART_POLLING_ONLY
+    // this won't really work, since we're checking every 20ms and the UART buffer is only 16 bytes.
+    // stuff could get lost.
+
+    // read bytes
+    UINT8 buffer[BLE_MAX_PACKET_LENGTH];
+    UINT32 bytesRead = application_receive_bytes(&buffer, BLE_MAX_PACKET_LENGTH);
+
+	countBytesRead += bytesRead;
+
+	saveUARTDataToBuffer(buffer, bytesRead);
+
+	#endif
+
+	send_uart_data_over_air();
+
+#endif
+
     // button control
-    bleprofile_ReadButton();
+    //bleprofile_ReadButton();
 }
 
 //
@@ -743,6 +810,13 @@ void hello_sensor_send_message_sized(UINT8 msgLen)
     }
     ble_tracen((char *)db_pdu.pdu, msgLen);
 
+
+	// fill the rest with 0s, because for some reason bleprofile_sendNotification() doesn't send
+    // unless you've filled up the buffer???
+//	while (msgLen < BLE_MAX_PACKET_LENGTH) {
+//		db_pdu.pdu[msgLen++] = 0x0;
+//	}
+
     if (hello_sensor_hostinfo.characteristic_client_configuration & CCC_NOTIFICATION)
     {
         bleprofile_sendNotification(HANDLE_HELLO_SENSOR_VALUE_NOTIFY, (UINT8 *)db_pdu.pdu, msgLen);
@@ -844,23 +918,27 @@ void hello_sensor_start_send_message(void) {
 // Button3 : (value&0x04)>>2
 void hello_sensor_interrupt_handler(UINT8 value)
 {
-    BLEPROFILE_DB_PDU db_pdu;
 
     ble_trace3("(INT)But1:%d But2:%d But3:%d\n", value&0x01, (value& 0x02) >> 1, (value & 0x04) >> 2);
 
-    // Blink as configured
-    bleprofile_LEDBlink(250, 250, hello_sensor_hostinfo.number_of_blinks);
 
-    // keep number of the button pushes in the last byte of the Hello %d message.  That will
-    // guarantee that if client reads it, it will have correct data.
-    bleprofile_ReadHandle(HANDLE_HELLO_SENSOR_VALUE_NOTIFY, &db_pdu);
-    ble_tracen((char *)db_pdu.pdu, db_pdu.len);
-    db_pdu.pdu[6]++;
-    if (db_pdu.pdu[6] > '9')
-    	db_pdu.pdu[6] = '0';
-    bleprofile_WriteHandle(HANDLE_HELLO_SENSOR_VALUE_NOTIFY, &db_pdu);
 
-    hello_sensor_start_send_message();
+//    BLEPROFILE_DB_PDU db_pdu;
+//
+//
+//    // Blink as configured
+//    bleprofile_LEDBlink(250, 250, hello_sensor_hostinfo.number_of_blinks);
+//
+//    // keep number of the button pushes in the last byte of the Hello %d message.  That will
+//    // guarantee that if client reads it, it will have correct data.
+//    bleprofile_ReadHandle(HANDLE_HELLO_SENSOR_VALUE_NOTIFY, &db_pdu);
+//    ble_tracen((char *)db_pdu.pdu, db_pdu.len);
+//    db_pdu.pdu[6]++;
+//    if (db_pdu.pdu[6] > '9')
+//    	db_pdu.pdu[6] = '0';
+//    bleprofile_WriteHandle(HANDLE_HELLO_SENSOR_VALUE_NOTIFY, &db_pdu);
+//
+//    hello_sensor_start_send_message();
 }
 
 /***

@@ -62,25 +62,27 @@ are received over the peripheral uart interface. This is optional.
 In the absence of this, the app is expected to poll the peripheral uart to pull out received bytes.
 	 */
 #if ENABLE_PUART_INTERRUPT_CALLBACK
-	// clear interrupt
-	P_UART_INT_CLEAR(P_UART_ISR_RX_AFF_MASK);
+	if (callback != NULL) {
+		// clear interrupt
+		P_UART_INT_CLEAR(P_UART_ISR_RX_AFF_MASK);
 
-	// set watermark to 1 byte - will interrupt on every byte received.
-	P_UART_WATER_MARK_RX_LEVEL (1);
+		// set watermark to 1 byte - will interrupt on every byte received.
+		P_UART_WATER_MARK_RX_LEVEL (1);
 
-	// enable UART interrupt in the Main Interrupt Controller and RX Almost Full in the UART // Interrupt Controller
-	P_UART_INT_ENABLE |= P_UART_ISR_RX_AFF_MASK;
+		// enable UART interrupt in the Main Interrupt Controller and RX Almost Full in the UART // Interrupt Controller
+		P_UART_INT_ENABLE |= P_UART_ISR_RX_AFF_MASK;
 
-	// Set callback function to app callback function.
-	puart_bleRxCb = application_puart_interrupt_callback;
+		// Set callback function to app callback function.
+		puart_bleRxCb = application_puart_interrupt_callback;
 
-	// also register a listener from the caller
-	onReceiveCB = callback;
+		// also register a listener from the caller
+		onReceiveCB = callback;
 
-	// Enable the CPU level interrupt
-	puart_enableInterrupt();
+		// Enable the CPU level interrupt
+		puart_enableInterrupt();
 
-	/* END - puart interrupt */
+		/* END - puart interrupt */
+	}
 #endif
 
 
