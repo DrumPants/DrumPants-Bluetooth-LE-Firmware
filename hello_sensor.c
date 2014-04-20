@@ -66,6 +66,10 @@
 // set to 1 to send periodic notifications for testing
 #define SEND_DEBUG_HEARTBEAT 0
 
+
+// if 1, adds a timecode to every BLE packet for debugging
+#define ENABLE_TIMECODE_HEADER 0
+
 // Please note that all UUIDs need to be reversed when publishing in the database
 
 // {1B7E8251-2877-41C3-B46E-CF057C562023}
@@ -419,10 +423,11 @@ void send_uart_data_over_air() {
 		int i = 0;
 
 		// first add a timecode for debugging
+#if ENABLE_TIMECODE_HEADER
 		db_pdu.pdu[i++] = 0xF8; // MIDI clock status (bastardized version that includes timecode)
 		db_pdu.pdu[i++] = hello_sensor_fine_timer_count % 127;
 		db_pdu.pdu[i++] = 0x0; // ios client expects 3 byte messages only
-
+#endif
 
 		while(!CBUF_IsEmpty(txBuffer)) {
 			db_pdu.pdu[i] = CBUF_Pop(txBuffer);
