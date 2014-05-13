@@ -14,11 +14,11 @@ APP_SRC = hello_sensor.c uart_one_wire.c
 # Add subdirectories to the includes
 ########################################################################
 
-INCS += $(DIR)
+#INCS += $(DIR)
 
 # Include application cgs if the app wants to override some config here
 # by uncommenting the following line and adding application.cgs to this directory.
 # CGS_LIST += $(DIR)/application.cgs
 
 # Include the chip common make file
-include spar_$(CHIP)$(REVNUM).inc
+#include spar_$(CHIP)$(REVNUM).inc

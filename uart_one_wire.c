@@ -4,7 +4,7 @@
 #include "blecm.h"
 
 // should i really include this file? seems like something that should be done via build script depending on the platform?
-#include "20732mapa0.h"
+//#include "20732mapa0.h"
 
 #include "puart.h"
 #include "platform.h"
