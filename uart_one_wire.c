@@ -1,14 +1,19 @@
 // fix for puart.h - found in ws_upgrade_uart.h - have no idea if that's right.
-#define REG32(x)  *((volatile UINT32*)(x))
+#ifndef REG32
+	#define REG32(x)  *((volatile UINT32*)(x))
+#endif
 
 #include "blecm.h"
 
-// should i really include this file? seems like something that should be done via build script depending on the platform?
-//#include "20732mapa0.h"
 
 #include "puart.h"
 #include "platform.h"
 #include "devicelpm.h"
+
+// should i really include this file? seems like something that should be done via build script depending on the platform?
+#ifndef P_UART_INT_CLEAR
+	#include "20732mapa0.h"
+#endif
 
 #include "uart_one_wire.h"
 
