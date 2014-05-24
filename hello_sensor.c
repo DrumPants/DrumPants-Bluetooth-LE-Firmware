@@ -47,8 +47,6 @@
 
 #include "uart_one_wire.h"
 
-#include "circular_buffer.h"
-
 
 /******************************************************
  *                      Constants
@@ -132,6 +130,7 @@ extern void bleprofile_appTimerCb( UINT32 arg );
 static void hello_sensor_start_send_message(void);
 static void hello_sensor_start_send_message_sized(UINT8 msgLen);
 static void send_uart_data_over_air();
+static void processPuartInput();
 
 /******************************************************
  *               Variables Definitions
@@ -228,7 +227,7 @@ const UINT8 hello_sensor_gatt_database[]=
 
     // Handle 0x50: characteristic Model Number, handle 0x51 characteristic value
     CHARACTERISTIC_UUID16 (0x0050, 0x0051, UUID_CHARACTERISTIC_MODEL_NUMBER_STRING, LEGATTDB_CHAR_PROP_READ, LEGATTDB_PERM_READABLE, 8),
-        '1','0','0','1',0x00,0x00,0x00,0x00,
+        '1','0','0','1',DRUMPANTS_FIRMWARE_VERSION,0x00,0x00,0x00,
 
     // Handle 0x52: characteristic System ID, handle 0x53 characteristic value
     CHARACTERISTIC_UUID16 (0x0052, 0x0053, UUID_CHARACTERISTIC_SYSTEM_ID, LEGATTDB_CHAR_PROP_READ, LEGATTDB_PERM_READABLE, 8),
@@ -336,6 +335,12 @@ UINT8 	hello_sensor_indication_sent    = 0;	// indication sent, waiting for ack
 UINT8   hello_sensor_num_to_write       = 0;  	// Number of messages we need to send
 UINT8   hello_sensor_stay_connected		= 1;	// Change that to 0 to disconnect when all messages are sent
 
+/***
+ * If true, all messages over PUART are interpreted as configuration commands.
+ * If false, all messages over PUART are forwarded over BLE.
+ */
+BOOL isInConfigMode = FALSE;
+
 // for UART debugging
 int countBytesRead = 0;
 
@@ -374,6 +379,7 @@ volatile struct
 } txBuffer;
 
 
+
 /***
  * Saves the given bytes from the UART to the buffer to send to BLE.
  *
@@ -410,8 +416,61 @@ static void onUARTReceive(char* buffer, int bufferLength) {
 		CBUF_Pop(txBuffer);
 	}
 #elif !SEND_BLE_ON_INTERVAL
-	send_uart_data_over_air();
+	processPuartInput();
 #endif
+}
+
+
+
+void processConfigInput() {
+
+	while (CBUF_Len(txBuffer) >= 3) {
+		byte statChan = CBUF_Pop(txBuffer);
+		byte status = statChan & 0xF0;
+
+		// respond to CCs
+		if (status == CONFIG_COMMAND_START_BYTE) {
+			// channel holds the sensor idx
+			byte channel = statChan & 0x0F;
+			byte num = CBUF_Pop(txBuffer);
+			byte val = CBUF_Pop(txBuffer);
+
+			switch (num) {
+
+				case CONFIG_COMMAND_REPORT_VERSION: {
+						byte response[] = {
+								CONFIG_COMMAND_START_BYTE,
+								CONFIG_COMMAND_REPORT_VERSION,
+								DRUMPANTS_FIRMWARE_VERSION
+						};
+
+						// send the response packet
+						application_send_bytes(response, sizeof(response));
+					}
+					break;
+
+				default:
+
+					ble_trace1("Unrecognized config command %d\n", num);
+					break;
+			}
+		}
+	}
+}
+
+
+
+/***
+ * Call this to process any received data from PUART.
+ * It will process config commands or send over BLE when appropriate.
+ */
+void processPuartInput() {
+	if (isInConfigMode) {
+		processConfigInput();
+	}
+	else {
+		send_uart_data_over_air();
+	}
 }
 
 void send_uart_data_over_air() {
@@ -735,7 +794,7 @@ void hello_sensor_fine_timeout(UINT32 arg)
 
 	#endif
 
-	send_uart_data_over_air();
+	processPuartInput();
 
 #endif
 
@@ -957,6 +1016,25 @@ void hello_sensor_start_send_message(void) {
 	hello_sensor_start_send_message_sized(0);
 }
 
+
+void enableConfigMode() {
+	isInConfigMode = TRUE;
+
+	// Clear the PUART buffer so we don't interpret leftover serial data as commands.
+	// TODO: is this thread safe? no.
+	CBUF_Init(txBuffer); // init just clears it, thankfully.
+
+	ble_trace0("Config mode enabled");
+}
+
+void disableConfigMode() {
+	isInConfigMode = FALSE;
+
+	ble_trace0("Config mode disabled");
+}
+
+
+
 // Three Interrupt inputs (Buttons) can be handled here.
 // If the following value == 1, Button is pressed. Different than initial value.
 // If the following value == 0, Button is depressed. Same as initial value.
@@ -965,8 +1043,14 @@ void hello_sensor_start_send_message(void) {
 // Button3 : (value&0x04)>>2
 void hello_sensor_interrupt_handler(UINT8 value)
 {
+    ble_trace3("(INT)But1:%d But2:%d But3:%d\n", (value & 0x01), (value& 0x02) >> 1, (value & 0x04) >> 2);
 
-    ble_trace3("(INT)But1:%d But2:%d But3:%d\n", value&0x01, (value& 0x02) >> 1, (value & 0x04) >> 2);
+    if ((value & 0x01) > 0) {
+		enableConfigMode();
+	}
+	else {
+		disableConfigMode();
+	}
 
 
 

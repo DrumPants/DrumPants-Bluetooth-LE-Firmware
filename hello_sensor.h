@@ -19,6 +19,15 @@
 #ifndef HELLO_SENSOR_H
 #define HELLO_SENSOR_H
 
+#include "circular_buffer.h"
+#include "config_mode.h"
+
+/**
+ * The current version of the drumpants BLE firmware.
+ */
+#define DRUMPANTS_FIRMWARE_VERSION 1
+
+
 // following definitions are shared between client and sensor
 // to avoid unnecessary GATT Discovery
 //
@@ -46,7 +55,11 @@
 #define UUID_HELLO_CHARACTERISTIC_NOTIFY    0x26, 0xf6, 0x69, 0x91, 0x68, 0xee, 0xc2, 0xbe, 0x44, 0x4d, 0xb9, 0x5c, 0x3f, 0x2d, 0xc3, 0x8a
 
 const UINT8  AppGuid[16] = {UUID_HELLO_SERVICE};
-const UINT16 VerMajor = 1;
+const UINT16 VerMajor = DRUMPANTS_FIRMWARE_VERSION;
 const UINT16 VerMinor = 1;
+
+typedef UINT8 byte;
+
+
 
 #endif

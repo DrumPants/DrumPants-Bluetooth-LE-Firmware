@@ -40,4 +40,16 @@ typedef enum  {
  */
 PUART_ERROR peripheral_uart_init(FUNC_ON_UART_RECEIVE callback, void (*ble_trace0) (const char *p_str) );
 
+// Sends out a stream of bytes to the peer device on the peripheral uart interface.
+// buffer - The buffer to send to the peer device.
+// length - The number of bytes from buffer to send.
+// Returns The number of bytes that were sent.
+UINT32 application_send_bytes(UINT8* buffer, UINT32 length);
+
+// Sends out a stream of bytes to the peer device on the peripheral uart interface.
+// buffer - The buffer to send to the peer device.
+// length - The number of bytes from buffer to send.
+// Returns The number of bytes that were sent.
+UINT32 application_send_bytes(UINT8* buffer, UINT32 length);
+
 #endif
