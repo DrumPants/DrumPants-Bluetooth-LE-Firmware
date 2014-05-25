@@ -43,6 +43,7 @@
 #include "stdio.h"
 #include "platform.h"
 #include "hello_sensor.h"
+#include "spar_utils.h"
 
 #include "uart_one_wire.h"
 
@@ -69,6 +70,10 @@
 
 // if 1, adds a timecode to every BLE packet for debugging
 #define ENABLE_TIMECODE_HEADER 0
+
+
+#define NVRAM_ID_HOST_LIST					0x10	// ID of the memory block used for NVRAM access
+
 
 // Please note that all UUIDs need to be reversed when publishing in the database
 
@@ -252,7 +257,7 @@ const BLE_PROFILE_CFG hello_sensor_cfg =
     /*.high_direct_adv_duration       =*/ 0,    // seconds
     /*.low_direct_adv_duration        =*/ 0,    // seconds
     /*.local_name                     =*/ "DrumPants",        // [LOCAL_NAME_LEN_MAX];
-    /*.cod                            =*/ "\x00\x00\x00", // [COD_LEN];
+    /*.cod                            =*/ BIT16_TO_8(APPEARANCE_GENERIC_TAG),0x00, // [COD_LEN];
     /*.ver                            =*/ "1.00",         // [VERSION_LEN];
     /*.encr_required                  =*/ (SECURITY_ENABLED | SECURITY_REQUEST),    // data encrypted and device sends security request on every connection
     /*.disc_required                  =*/ 0,    // if 1, disconnection after confirmation
@@ -326,7 +331,7 @@ UINT32 	hello_sensor_timer_count        = 0;
 UINT32 	hello_sensor_fine_timer_count   = 0;
 UINT16 	hello_sensor_connection_handle	= 0;	// HCI handle of connection, not zero when connected
 BD_ADDR hello_sensor_remote_addr        = {0, 0, 0, 0, 0, 0};
-INT8 	hello_sensor_indication_sent    = 0;	// indication sent, waiting for ack
+UINT8 	hello_sensor_indication_sent    = 0;	// indication sent, waiting for ack
 UINT8   hello_sensor_num_to_write       = 0;  	// Number of messages we need to send
 UINT8   hello_sensor_stay_connected		= 1;	// Change that to 0 to disconnect when all messages are sent
 
@@ -457,8 +462,9 @@ void send_uart_data_over_air() {
 void hello_sensor_create(void)
 {
     BLEPROFILE_DB_PDU db_pdu;
+
 	extern UINT32 blecm_configFlag ;
-	blecm_configFlag |= BLECM_DBGUART_LOG;
+	blecm_configFlag |= BLECM_DBGUART_LOG | BLECM_DBGUART_LOG_L2CAP | BLECM_DBGUART_LOG_SMP;
 
     ble_trace0("hello_sensor_create()");
     ble_trace0(bleprofile_p_cfg->ver);
@@ -501,6 +507,7 @@ void hello_sensor_create(void)
     }
     else
     {
+    	// total length should be less than 31 bytes
     	BLE_ADV_FIELD adv[3];
 
         // flags
@@ -549,13 +556,13 @@ void hello_sensor_connection_up(void)
     hello_sensor_connection_handle = (UINT16)emconinfo_getConnHandle();
 
     // save address of the connected device and print it out.
-    memcpy(hello_sensor_remote_addr, (UINT8 *)emconninfo_getPeerAddr(), sizeof(hello_sensor_remote_addr));
+    memcpy(hello_sensor_remote_addr, (UINT8 *)emconninfo_getPeerPubAddr(), sizeof(hello_sensor_remote_addr));
 
-    ble_trace3("hello_sensor_connection_up: %08x%04x %d\n",
+    ble_trace5("hello_sensor_connection_up: %08x%04x type %d bonded %d handle %04x\n",
                 (hello_sensor_remote_addr[5] << 24) + (hello_sensor_remote_addr[4] << 16) + 
                 (hello_sensor_remote_addr[3] << 8) + hello_sensor_remote_addr[2],
                 (hello_sensor_remote_addr[1] << 8) + hello_sensor_remote_addr[0],
-                hello_sensor_connection_handle);
+                emconninfo_getPeerAddrType(), emconninfo_deviceBonded(), hello_sensor_connection_handle);
 
     // Stop advertising
     bleprofile_Discoverable(NO_DISCOVERABLE, NULL);
@@ -566,18 +573,27 @@ void hello_sensor_connection_up(void)
     // encryption is done.
     if (bleprofile_p_cfg->encr_required != 0)
     {
-        lesmp_sendSecurityRequest();
+    	if (emconninfo_deviceBonded())
+    	{
+    		ble_trace0("device bonded");
+    	}
+    	else
+    	{
+    		ble_trace0("device not bonded");
+    	    lesmp_pinfo->pairingParam.AuthReq  |= LESMP_AUTH_FLAG_BONDING;
+            lesmp_sendSecurityRequest();
+    	}
         return;
     }
     // saving bd_addr in nvram
 
-    bda =(UINT8 *)emconninfo_getPeerAddr();
+    bda =(UINT8 *)emconninfo_getPeerPubAddr();
 
     memcpy(hello_sensor_hostinfo.bdaddr, bda, sizeof(BD_ADDR));
     hello_sensor_hostinfo.characteristic_client_configuration = 0;
     hello_sensor_hostinfo.number_of_blinks = 0;
 
-    writtenbyte = bleprofile_WriteNVRAM(VS_BLE_HOST_LIST, sizeof(hello_sensor_hostinfo), (UINT8 *)&hello_sensor_hostinfo);
+	writtenbyte = bleprofile_WriteNVRAM(NVRAM_ID_HOST_LIST, sizeof(hello_sensor_hostinfo), (UINT8 *)&hello_sensor_hostinfo);
     ble_trace1("NVRAM write:%04x\n", writtenbyte);
 
     hello_sensor_encryption_changed(NULL);
@@ -586,11 +602,7 @@ void hello_sensor_connection_up(void)
 // This function will be called when connection goes down
 void hello_sensor_connection_down(void)
 {
-    ble_trace3("hello_sensor_connection_down:%08x%04x handle:%d\n",
-                (hello_sensor_remote_addr[5] << 24) + (hello_sensor_remote_addr[4] << 16) +
-                (hello_sensor_remote_addr[3] << 8) + hello_sensor_remote_addr[2],
-                (hello_sensor_remote_addr[1] << 8) + hello_sensor_remote_addr[0],
-                hello_sensor_connection_handle);
+    ble_trace1("hello_sensor_connection_down:%08x%04x handle:%d\n", hello_sensor_connection_handle);
 
 	memset (hello_sensor_remote_addr, 0, 6);
 	hello_sensor_connection_handle = 0;
@@ -657,6 +669,7 @@ void hello_sensor_timeout(UINT32 arg)
 //    	len = 2;
 //    }
 
+// TODO: WTF is this? disable!
     UINT8 msg[] = {hello_sensor_timer_count};
 
     application_send_bytes(msg, len);
@@ -702,7 +715,9 @@ void hello_sensor_fine_timeout(UINT32 arg)
 //
 void hello_sensor_smp_bond_result(LESMP_PARING_RESULT  result)
 {
-    ble_trace1("hello_sample, bond result %02x\n", result);
+    ble_trace3("hello_sample, bond result %02x smpinfo addr type:%d emconninfo type:%d\n",
+    		result, lesmp_pinfo->lesmpkeys_bondedInfo.adrType, emconninfo_getPeerAddrType());
+
 
     // do some noise
     bleprofile_BUZBeep(bleprofile_p_cfg->buz_on_ms);
@@ -713,13 +728,14 @@ void hello_sensor_smp_bond_result(LESMP_PARING_RESULT  result)
         UINT8 *bda;
         UINT8 writtenbyte;
 
-        bda =(UINT8 *)emconninfo_getPeerAddr();
+        bda = (UINT8 *)emconninfo_getPeerPubAddr();
 
         memcpy(hello_sensor_hostinfo.bdaddr, bda, sizeof(BD_ADDR));
         hello_sensor_hostinfo.characteristic_client_configuration = 0;
         hello_sensor_hostinfo.number_of_blinks = 0;
 
-        writtenbyte = bleprofile_WriteNVRAM(VS_BLE_HOST_LIST, sizeof(hello_sensor_hostinfo), (UINT8 *)&hello_sensor_hostinfo);
+        ble_trace2("Bond successful %08x%04x\n", (bda[5] << 24) + (bda[4] << 16) + (bda[3] << 8) + bda[2], (bda[1] << 8) + bda[0]);
+        writtenbyte = bleprofile_WriteNVRAM(NVRAM_ID_HOST_LIST, sizeof(hello_sensor_hostinfo), (UINT8 *)&hello_sensor_hostinfo);
         ble_trace1("NVRAM write:%04x\n", writtenbyte);
     }
 }
@@ -733,13 +749,18 @@ void hello_sensor_encryption_changed(HCI_EVT_HDR *evt)
 {
     BLEPROFILE_DB_PDU db_pdu;
 
-    ble_trace0("hello_sample, encryption changed\n");
+    UINT8 *bda = emconninfo_getPeerPubAddr();
+
+    ble_trace2("hello_sample, encryption changed %08x%04x\n",
+                (bda[5] << 24) + (bda[4] << 16) +
+                (bda[3] << 8) + bda[2],
+                (bda[1] << 8) + bda[0]);
 
     bleprofile_BUZBeep(bleprofile_p_cfg->buz_on_ms);
 
     // Connection has been encrypted meaning that we have correct/paired device
     // restore values in the database
-    bleprofile_ReadNVRAM(VS_BLE_HOST_LIST, sizeof(hello_sensor_hostinfo), (UINT8 *)&hello_sensor_hostinfo);
+    bleprofile_ReadNVRAM(NVRAM_ID_HOST_LIST, sizeof(hello_sensor_hostinfo), (UINT8 *)&hello_sensor_hostinfo);
 
     // Need to setup value of Client Configuration descriptor in our database because peer
     // might decide to read and stack sends answer without asking application.
@@ -863,15 +884,6 @@ int hello_sensor_write_handler(LEGATTDB_ENTRY_HDR *p)
     // do some noise
     bleprofile_BUZBeep(bleprofile_p_cfg->buz_on_ms);
 
-    // make sure that it is the paired device which is trying to write
-    // read BDADDR of the "paired device" from the NVRAM and compare with connected
-    bleprofile_ReadNVRAM(VS_BLE_HOST_LIST, sizeof(hello_sensor_hostinfo), (UINT8 *)&hello_sensor_hostinfo);
-
-    if (memcmp(hello_sensor_remote_addr, hello_sensor_hostinfo.bdaddr, 6) != 0)
-    {
-        ble_trace1("hello_sensor_write_handler: wrong host handle %04x\n", handle);
-        //return 0;
-    }
     ble_trace1("hello_sensor_write_handler: handle %04x\n", handle);
 
     // By writing into Characteristic Client Configuration descriptor
@@ -896,7 +908,7 @@ int hello_sensor_write_handler(LEGATTDB_ENTRY_HDR *p)
     	return 0x80;
     }
     // Save update to NVRAM.  Client does not need to set it on every connection.
-    writtenbyte = bleprofile_WriteNVRAM(VS_BLE_HOST_LIST, sizeof(hello_sensor_hostinfo), (UINT8 *)&hello_sensor_hostinfo);
+    writtenbyte = bleprofile_WriteNVRAM(NVRAM_ID_HOST_LIST, sizeof(hello_sensor_hostinfo), (UINT8 *)&hello_sensor_hostinfo);
     ble_trace1("hello_sensor_write_handler: NVRAM write:%04x\n", writtenbyte);
 
     return 0;
