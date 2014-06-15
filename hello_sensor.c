@@ -301,8 +301,8 @@ const BLE_PROFILE_CFG hello_sensor_cfg =
 const BLE_PROFILE_PUART_CFG hello_sensor_puart_cfg =
 {
     /*.baudrate   =*/ PUART_BAUD_RATE,
-    /*.txpin      =*/ PUARTENABLE | PUART_TX_PIN,
-    /*.rxpin      =*/ PUARTENABLE | PUART_RX_PIN,
+    /*.txpin      =*/ PUART_TX_PIN,
+    /*.rxpin      =*/ PUART_RX_PIN,
 };
 
 // Following structure defines GPIO configuration used by the application
@@ -534,10 +534,16 @@ void hello_sensor_create(void)
     // init the UART
     CBUF_Init(txBuffer);
 #if UART_POLLING_ONLY
+
     // don't use an interrupt when we receive bytes, just poll for them on the fine timer.
-    uart_init(NULL);
+    if (!uart_init(NULL)) {
+        ble_trace0("FAILED to init PUART");
+    }
 #else
-    uart_init(&onUARTReceive);
+
+    if (!uart_init(&onUARTReceive)) {
+        ble_trace0("FAILED to init PUART");
+    }
 #endif
 }
 
@@ -675,8 +681,8 @@ void hello_sensor_timeout(UINT32 arg)
 //
 //    application_send_bytes(msg, len);
 //
-//    ble_trace1("read %d bytes from UART:\n", countBytesRead);
-//    countBytesRead = 0;
+    ble_trace1("read %d bytes from UART:\n", countBytesRead);
+    countBytesRead = 0;
 }
 
 void hello_sensor_fine_timeout(UINT32 arg)

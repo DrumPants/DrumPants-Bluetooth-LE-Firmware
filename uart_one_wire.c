@@ -20,8 +20,9 @@
 #if SDK_VERSION < 2
 	// fix for puart.h - found in ws_upgrade_uart.h - have no idea if that's right.
 	extern BLECM_FUNC_WITH_PARAM puart_bleRxCb;
-#else
-	#define puart_bleRxCb puart_rxCb
+
+	// make SDK 1.2 compatible with SDK 2
+	#define puart_rxCb puart_bleRxCb
 #endif
 
 // holds the callback function when a packet is read.
@@ -79,27 +80,72 @@ void
 
 /***
  * Inits the PUART with the given RX callback.
+ *
+ * Returns TRUE if successful.
  */
-void uart_init(FUNC_ON_UART_RECEIVE callback) {
+BOOL32 uart_init(FUNC_ON_UART_RECEIVE callback) {
 	extern puart_UartConfig puart_config;
 
 	// Do all other app initializations.
 	// Set the baud rate we want to use. Default is 115200.
 	puart_config.baudrate = PUART_BAUD_RATE;
-	//puart_config.pUartFunction
+
+	if (puart_checkRxdPortPin(PUART_RX_PIN)) {
+		ble_trace1("\nUsing PUART RX pin %d", PUART_RX_PIN);
+	}
+	else {
+		ble_trace1("\nFailed to set PUART RX pin %d", PUART_RX_PIN);
+	}
+
+	if (puart_checkTxdPortPin(PUART_TX_PIN)) {
+		ble_trace1("\nUsing PUART TX pin %d", PUART_TX_PIN);
+	}
+	else {
+		ble_trace1("\nFailed to set PUART TX pin %d", PUART_TX_PIN);
+	}
+
 	// Select the uart pins for RXD, TXD and optionally CTS and RTS.
 	// If hardware flow control is not required like here, set these
 	// pins to 0x00. See Table 1 and Table 2 for valid options.
-	puart_selectUartPads(PUART_RX_PIN, PUART_TX_PIN, 0x00, 0x00);
+	if (!puart_selectUartPads(PUART_RX_PIN, PUART_TX_PIN, 0x00, 0x00)) {
+		ble_trace0("\nFailed to set PUART RX/TX pins!");
+
+		return FALSE;
+	}
 
 	// Initialize the peripheral uart driver
 	puart_init();
 
+#if SDK_VERSION >= 2
+	puart_setBaudrate(0x0, 0x0, PUART_BAUD_RATE);
+#endif
+
 	// Since we are not configuring CTS and RTS here, turn off // hardware flow control. If HW flow control is used, then // puart_flowOff should not be invoked.
 	puart_flowOff();
 
+#if SDK_VERSION < 2
 	bleprofile_PUARTRxOn();
 	bleprofile_PUARTTxOn();
+#else
+	puart_enableTx();
+#endif
+
+
+	// disable sleep mode: the PUART does not work if the device is asleep
+#if SDK_VERSION < 2
+	devlpm_init();
+#endif
+
+	// Since we are not using any flow control, disable sleep when download starts.
+	// If HW flow control is configured or app uses its own flow control mechanism,
+	// this is not required.
+	if (!devlpm_registerForLowPowerQueries(ws_upgrade_uart_device_lpm_queriable, 0)) {
+		ble_trace0("\nFailed to disable low power mode for PUART!");
+
+		return FALSE;
+	}
+
+
 
 	/* BEGIN - puart interrupt
 The following lines enable interrupt when one (or more) bytes
@@ -117,11 +163,11 @@ In the absence of this, the app is expected to poll the peripheral uart to pull 
 		// enable UART interrupt in the Main Interrupt Controller and RX Almost Full in the UART // Interrupt Controller
 		P_UART_INT_ENABLE |= P_UART_ISR_RX_AFF_MASK;
 
-		// Set callback function to app callback function.
-		puart_bleRxCb = application_puart_interrupt_callback;
-
 		// also register a listener from the caller
 		onReceiveCB = callback;
+
+		// Set callback function to app callback function.
+		puart_rxCb = application_puart_interrupt_callback;
 
 		// Enable the CPU level interrupt
 		puart_enableInterrupt();
@@ -130,21 +176,11 @@ In the absence of this, the app is expected to poll the peripheral uart to pull 
 	}
 #endif
 
-
-	// disable sleep mode: the PUART does not work if the device is asleep
-#if SDK_VERSION < 2
-	devlpm_init();
-#endif
-
-	// Since we are not using any flow control, disable sleep when download starts.
-	// If HW flow control is configured or app uses its own flow control mechanism,
-	// this is not required.
-	devlpm_registerForLowPowerQueries(ws_upgrade_uart_device_lpm_queriable, 0);
-
-
 	// print a string message assuming that the device connected
 	// to the peripheral uart can handle this string.
-	puart_print("Application initialization complete!");
+	//puart_print("Application initialization complete!");
+
+	return TRUE;
 }
 
 // Sends out a stream of bytes to the peer device on the peripheral uart interface.

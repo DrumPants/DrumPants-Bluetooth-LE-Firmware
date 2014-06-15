@@ -31,6 +31,6 @@ typedef void (*FUNC_ON_UART_RECEIVE)(char*, int);
 /***
  * Inits the PUART with the given RX callback.
  */
-void uart_init(FUNC_ON_UART_RECEIVE callback);
+BOOL32 uart_init(FUNC_ON_UART_RECEIVE callback);
 
 #endif
