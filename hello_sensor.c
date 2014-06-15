@@ -575,11 +575,11 @@ void hello_sensor_connection_up(void)
     {
     	if (emconninfo_deviceBonded())
     	{
-    		ble_trace0("device bonded");
+    		ble_trace0("\ndevice bonded");
     	}
     	else
     	{
-    		ble_trace0("device not bonded");
+    		ble_trace0("\ndevice not bonded");
     	    lesmp_pinfo->pairingParam.AuthReq  |= LESMP_AUTH_FLAG_BONDING;
             lesmp_sendSecurityRequest();
     	}
@@ -602,7 +602,7 @@ void hello_sensor_connection_up(void)
 // This function will be called when connection goes down
 void hello_sensor_connection_down(void)
 {
-    ble_trace1("hello_sensor_connection_down:%08x%04x handle:%d\n", hello_sensor_connection_handle);
+    ble_trace2("hello_sensor_connection_down:%08x%04x handle:%d reason: %d\n", hello_sensor_connection_handle, emconinfo_getDiscReason());
 
 	memset (hello_sensor_remote_addr, 0, 6);
 	hello_sensor_connection_handle = 0;
