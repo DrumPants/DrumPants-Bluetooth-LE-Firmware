@@ -17,13 +17,12 @@
 
 #include "uart_one_wire.h"
 
-// fix for puart.h - found in ws_upgrade_uart.h - have no idea if that's right.
-extern BLECM_FUNC_WITH_PARAM puart_bleRxCb;
-
-
-//private:
-INT32 application_puart_interrupt_callback(void* unused);
-
+#if SDK_VERSION < 2
+	// fix for puart.h - found in ws_upgrade_uart.h - have no idea if that's right.
+	extern BLECM_FUNC_WITH_PARAM puart_bleRxCb;
+#else
+	#define puart_bleRxCb puart_rxCb
+#endif
 
 // holds the callback function when a packet is read.
 FUNC_ON_UART_RECEIVE onReceiveCB;
@@ -36,6 +35,47 @@ UINT32 ws_upgrade_uart_device_lpm_queriable(LowPowerModePollType type, UINT32 co
 	// Disable sleep.
 	return 0;
 }
+
+
+
+// Application thread context uart interrupt handler.
+// unused - Unused parameter.
+// changing return types based on a define? that's not messed up at all!
+// really though, this is the fastest way to handle differences between the callback function signature between SDK 1.2 and 2.0
+#if SDK_VERSION < 2
+INT32
+#else
+void
+#endif
+  application_puart_interrupt_callback(void* unused) {
+	// There can be at most 16 bytes in the HW FIFO.
+	char readbytes[16];
+
+	UINT8 number_of_bytes_read = 0;
+
+	// empty the FIFO
+	while(puart_rxFifoNotEmpty() && puart_read(&readbytes[number_of_bytes_read])) {
+		number_of_bytes_read++;
+	}
+
+	// readbytes should have number_of_bytes_read bytes of data read from puart. Do something with this.
+
+	// TODO: should this be after clearing the interrupt????
+	if (number_of_bytes_read > 0) {
+		onReceiveCB(readbytes, number_of_bytes_read);
+	}
+
+	// clear the interrupt
+	P_UART_INT_CLEAR(P_UART_ISR_RX_AFF_MASK);
+
+	// enable UART interrupt in the Main Interrupt Controller and RX Almost Full in the UART Interrupt Controller
+	P_UART_INT_ENABLE |= P_UART_ISR_RX_AFF_MASK;
+
+#if SDK_VERSION < 2
+	return 0;
+#endif
+}
+
 
 /***
  * Inits the PUART with the given RX callback.
@@ -92,7 +132,9 @@ In the absence of this, the app is expected to poll the peripheral uart to pull 
 
 
 	// disable sleep mode: the PUART does not work if the device is asleep
+#if SDK_VERSION < 2
 	devlpm_init();
+#endif
 
 	// Since we are not using any flow control, disable sleep when download starts.
 	// If HW flow control is configured or app uses its own flow control mechanism,
@@ -155,31 +197,4 @@ UINT32 application_receive_bytes(UINT8* buffer, UINT32 length) {
 }
 
 
-// Application thread context uart interrupt handler.
-// unused - Unused parameter.
-INT32 application_puart_interrupt_callback(void* unused) {
-	// There can be at most 16 bytes in the HW FIFO.
-	char readbytes[16];
 
-	UINT8 number_of_bytes_read = 0;
-
-	// empty the FIFO
-	while(puart_rxFifoNotEmpty() && puart_read(&readbytes[number_of_bytes_read])) {
-		number_of_bytes_read++;
-	}
-
-	// readbytes should have number_of_bytes_read bytes of data read from puart. Do something with this.
-
-	// TODO: should this be after clearing the interrupt????
-	if (number_of_bytes_read > 0) {
-		onReceiveCB(readbytes, number_of_bytes_read);
-	}
-
-	// clear the interrupt
-	P_UART_INT_CLEAR(P_UART_ISR_RX_AFF_MASK);
-
-	// enable UART interrupt in the Main Interrupt Controller and RX Almost Full in the UART Interrupt Controller
-	P_UART_INT_ENABLE |= P_UART_ISR_RX_AFF_MASK;
-
-	return 0;
-}

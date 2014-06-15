@@ -129,6 +129,7 @@ static void hello_sensor_indication_cfm( void );
 static void hello_sensor_interrupt_handler( UINT8 value );
 extern void bleprofile_appTimerCb( UINT32 arg );
 
+static void hello_sensor_start_send_message(void);
 static void hello_sensor_start_send_message_sized(UINT8 msgLen);
 static void send_uart_data_over_air();
 
@@ -670,12 +671,12 @@ void hello_sensor_timeout(UINT32 arg)
 //    }
 
 // TODO: WTF is this? disable!
-    UINT8 msg[] = {hello_sensor_timer_count};
-
-    application_send_bytes(msg, len);
-
-    ble_trace1("read %d bytes from UART:\n", countBytesRead);
-    countBytesRead = 0;
+//    UINT8 msg[] = {hello_sensor_timer_count};
+//
+//    application_send_bytes(msg, len);
+//
+//    ble_trace1("read %d bytes from UART:\n", countBytesRead);
+//    countBytesRead = 0;
 }
 
 void hello_sensor_fine_timeout(UINT32 arg)

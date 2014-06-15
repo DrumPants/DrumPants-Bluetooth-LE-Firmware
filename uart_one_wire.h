@@ -5,6 +5,9 @@
 #ifndef UART_ONE_WIRE_H
 #define UART_ONE_WIRE_H
 
+// needed to remove some code from SDK 1.2 (BCM20732) that doesn't work on the BCM20736.
+// use 1 for BCM20732, 2 for BCM20736
+#define SDK_VERSION 2
 
 // Use P33 for peripheral uart RX. (default GPIO_PIN_UART_RX)
 #define PUART_RX_PIN 25
