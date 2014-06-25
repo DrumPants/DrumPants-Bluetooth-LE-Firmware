@@ -28,9 +28,16 @@
 typedef void (*FUNC_ON_UART_RECEIVE)(char*, int);
 
 
+typedef enum  {
+	PUART_SUCCESS,
+	PUART_ERROR_LPM,
+	PUART_ERROR_PIN_INVALID,
+	PUART_ERROR_PIN_ASSIGNMENT_FAILED
+} PUART_ERROR;
+
 /***
  * Inits the PUART with the given RX callback.
  */
-BOOL32 uart_init(FUNC_ON_UART_RECEIVE callback);
+PUART_ERROR peripheral_uart_init(FUNC_ON_UART_RECEIVE callback, void (*ble_trace0) (const char *p_str) );
 
 #endif

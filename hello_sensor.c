@@ -467,8 +467,8 @@ void hello_sensor_create(void)
 	extern UINT32 blecm_configFlag ;
 	blecm_configFlag |= BLECM_DBGUART_LOG | BLECM_DBGUART_LOG_L2CAP | BLECM_DBGUART_LOG_SMP;
 
-    ble_trace0("hello_sensor_create()");
-    ble_trace0(bleprofile_p_cfg->ver);
+    ble_trace0("\nhello_sensor_create()\n");
+    //ble_trace0(bleprofile_p_cfg->ver);
 
     // dump the database to debug uart.
     legattdb_dumpDb();
@@ -535,16 +535,40 @@ void hello_sensor_create(void)
     CBUF_Init(txBuffer);
 #if UART_POLLING_ONLY
 
+    ble_trace0("\nuart_init()\n");
     // don't use an interrupt when we receive bytes, just poll for them on the fine timer.
     if (!uart_init(NULL)) {
-        ble_trace0("FAILED to init PUART");
+        ble_trace0("\nFAILED to init PUART\n");
     }
 #else
 
-    if (!uart_init(&onUARTReceive)) {
-        ble_trace0("FAILED to init PUART");
+    ble_trace0("\nuart_init(callback)\n");
+    PUART_ERROR res = peripheral_uart_init(&onUARTReceive, &ble_trace0);
+    if (res == PUART_SUCCESS) {
+    	ble_trace0("\ninited PUART successfully\n");
+    }
+    else {
+    	switch (res) {
+			case PUART_SUCCESS:
+				ble_trace0("\nFAILED to init PUART: error PUART_SUCCESS\n");
+				break;
+			case PUART_ERROR_LPM:
+				ble_trace0("\nFAILED to init PUART: error PUART_ERROR_LPM\n");
+				break;
+			case PUART_ERROR_PIN_INVALID:
+				ble_trace0("\nFAILED to init PUART: error PUART_ERROR_PIN_INVALID\n");
+				break;
+			case PUART_ERROR_PIN_ASSIGNMENT_FAILED:
+				ble_trace0("\nFAILED to init PUART: error PUART_ERROR_PIN_ASSIGNMENT_FAILED\n");
+				break;
+			default:
+				ble_trace1("\nFAILED to init PUART: error unknown error %d\n", res);
+    	}
     }
 #endif
+
+
+    ble_trace0("\nhello_sensor_create() DONE");
 }
 
 // Initialize GATT database
@@ -677,10 +701,11 @@ void hello_sensor_timeout(UINT32 arg)
 //    }
 
 // TODO: WTF is this? disable!
-//    UINT8 msg[] = {hello_sensor_timer_count};
-//
-//    application_send_bytes(msg, len);
-//
+// and now it even crashes the BCM20736!!!!
+    UINT8 msg[] = {hello_sensor_timer_count};
+
+    application_send_bytes(msg, len);
+
     ble_trace1("read %d bytes from UART:\n", countBytesRead);
     countBytesRead = 0;
 }

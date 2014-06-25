@@ -3,7 +3,8 @@
 	#define REG32(x)  *((volatile UINT32*)(x))
 #endif
 
-#include "blecm.h"
+#include "bleapp.h"
+//#include "blecm.h"
 
 
 #include "puart.h"
@@ -83,34 +84,40 @@ void
  *
  * Returns TRUE if successful.
  */
-BOOL32 uart_init(FUNC_ON_UART_RECEIVE callback) {
+PUART_ERROR peripheral_uart_init(FUNC_ON_UART_RECEIVE callback, void (*trace0) (const char *p_str) ) {
 	extern puart_UartConfig puart_config;
 
 	// Do all other app initializations.
 	// Set the baud rate we want to use. Default is 115200.
 	puart_config.baudrate = PUART_BAUD_RATE;
 
-	if (puart_checkRxdPortPin(PUART_RX_PIN)) {
+	// these are reversed for some reason? returns true if invalid, false if valid. WTF??
+	if (!puart_checkRxdPortPin(PUART_RX_PIN)) {
 		ble_trace1("\nUsing PUART RX pin %d", PUART_RX_PIN);
 	}
 	else {
 		ble_trace1("\nFailed to set PUART RX pin %d", PUART_RX_PIN);
+		return PUART_ERROR_PIN_INVALID;
 	}
 
-	if (puart_checkTxdPortPin(PUART_TX_PIN)) {
+	if (!puart_checkTxdPortPin(PUART_TX_PIN)) {
 		ble_trace1("\nUsing PUART TX pin %d", PUART_TX_PIN);
 	}
 	else {
 		ble_trace1("\nFailed to set PUART TX pin %d", PUART_TX_PIN);
+		return PUART_ERROR_PIN_INVALID;
 	}
 
 	// Select the uart pins for RXD, TXD and optionally CTS and RTS.
 	// If hardware flow control is not required like here, set these
 	// pins to 0x00. See Table 1 and Table 2 for valid options.
-	if (!puart_selectUartPads(PUART_RX_PIN, PUART_TX_PIN, 0x00, 0x00)) {
+	if (puart_selectUartPads(PUART_RX_PIN, PUART_TX_PIN, 0x00, 0x00)) {
 		ble_trace0("\nFailed to set PUART RX/TX pins!");
 
-		return FALSE;
+		return PUART_ERROR_PIN_ASSIGNMENT_FAILED;
+	}
+	else {
+		ble_trace0("\nSet PUART RX/TX pins correctly!");
 	}
 
 	// Initialize the peripheral uart driver
@@ -132,9 +139,9 @@ BOOL32 uart_init(FUNC_ON_UART_RECEIVE callback) {
 
 
 	// disable sleep mode: the PUART does not work if the device is asleep
-#if SDK_VERSION < 2
+//#if SDK_VERSION < 2
 	devlpm_init();
-#endif
+//#endif
 
 	// Since we are not using any flow control, disable sleep when download starts.
 	// If HW flow control is configured or app uses its own flow control mechanism,
@@ -142,7 +149,7 @@ BOOL32 uart_init(FUNC_ON_UART_RECEIVE callback) {
 	if (!devlpm_registerForLowPowerQueries(ws_upgrade_uart_device_lpm_queriable, 0)) {
 		ble_trace0("\nFailed to disable low power mode for PUART!");
 
-		return FALSE;
+		return PUART_ERROR_LPM;
 	}
 
 
@@ -154,6 +161,8 @@ In the absence of this, the app is expected to poll the peripheral uart to pull 
 	 */
 #if ENABLE_PUART_INTERRUPT_CALLBACK
 	if (callback != NULL) {
+	    //trace0("\nENABLING_PUART_INTERRUPT_CALLBACK");
+
 		// clear interrupt
 		P_UART_INT_CLEAR(P_UART_ISR_RX_AFF_MASK);
 
@@ -180,7 +189,9 @@ In the absence of this, the app is expected to poll the peripheral uart to pull 
 	// to the peripheral uart can handle this string.
 	//puart_print("Application initialization complete!");
 
-	return TRUE;
+    //trace0("\nuart_init() DONE\n");
+
+	return PUART_SUCCESS;
 }
 
 // Sends out a stream of bytes to the peer device on the peripheral uart interface.
