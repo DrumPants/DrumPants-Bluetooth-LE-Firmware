@@ -533,17 +533,20 @@ void hello_sensor_create(void)
 
     // init the UART
     CBUF_Init(txBuffer);
+    
+    PUART_ERROR res;
 #if UART_POLLING_ONLY
 
     ble_trace0("\nuart_init()\n");
     // don't use an interrupt when we receive bytes, just poll for them on the fine timer.
-    if (!uart_init(NULL)) {
-        ble_trace0("\nFAILED to init PUART\n");
-    }
+    res = peripheral_uart_init(NULL, &ble_trace0);
+
 #else
 
     ble_trace0("\nuart_init(callback)\n");
-    PUART_ERROR res = peripheral_uart_init(&onUARTReceive, &ble_trace0);
+    res = peripheral_uart_init(&onUARTReceive, &ble_trace0);
+#endif
+    
     if (res == PUART_SUCCESS) {
     	ble_trace0("\ninited PUART successfully\n");
     }
@@ -568,7 +571,7 @@ void hello_sensor_create(void)
 #endif
 
 
-    ble_trace0("\nhello_sensor_create() DONE");
+    //ble_trace0("\nhello_sensor_create() DONE");
 }
 
 // Initialize GATT database
