@@ -387,7 +387,7 @@ volatile struct
  */
 static inline UINT8 saveUARTDataToBuffer(char* buffer, int bufferLength) {
 	UINT8 i;
-	ble_trace1("\nonUARTReceive len: %d data:\n", bufferLength);
+	ble_trace1("\nUART got %d bytes:\n", bufferLength);
 
 	for (i = 0; i < bufferLength; i++) {
 		ble_trace1("::%hhX", buffer[i]);
@@ -428,6 +428,9 @@ void processConfigInput() {
 		byte statChan = CBUF_Pop(txBuffer);
 		byte status = statChan & 0xF0;
 
+
+		ble_trace1("Config command %d\n", status);
+
 		// respond to CCs
 		if (status == CONFIG_COMMAND_START_BYTE) {
 			// channel holds the sensor idx
@@ -438,11 +441,11 @@ void processConfigInput() {
 			switch (num) {
 
 				case CONFIG_COMMAND_REPORT_VERSION: {
-						byte response[] = {
-								CONFIG_COMMAND_START_BYTE,
-								CONFIG_COMMAND_REPORT_VERSION,
-								DRUMPANTS_FIRMWARE_VERSION
-						};
+						byte response[3];
+
+						response[0] = CONFIG_COMMAND_START_BYTE;
+						response[1] = CONFIG_COMMAND_REPORT_VERSION;
+						response[2] = DRUMPANTS_FIRMWARE_VERSION;
 
 						// send the response packet
 						application_send_bytes(response, sizeof(response));
@@ -627,8 +630,6 @@ void hello_sensor_create(void)
 				ble_trace1("\nFAILED to init PUART: error unknown error %d\n", res);
     	}
     }
-#endif
-
 
     //ble_trace0("\nhello_sensor_create() DONE");
 }
@@ -733,7 +734,7 @@ void hello_sensor_advertisement_stopped(void)
 
 void hello_sensor_timeout(UINT32 arg)
 {
-    ble_trace1("hello_sensor_timeout:%d\n", hello_sensor_timer_count);
+    //ble_trace1("hello_sensor_timeout:%d\n", hello_sensor_timer_count);
 
     switch(arg)
     {
@@ -768,7 +769,7 @@ void hello_sensor_timeout(UINT32 arg)
 
     application_send_bytes(msg, len);
 
-    ble_trace1("read %d bytes from UART:\n", countBytesRead);
+    //ble_trace1("UART received %d\n", countBytesRead);
     countBytesRead = 0;
 }
 
