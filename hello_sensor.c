@@ -166,7 +166,7 @@ const UINT8 hello_sensor_gatt_database[]=
     // replace the "Hello" string below.  Keep it short so that it fits in
     // advertisement data along with 16 byte UUID.
     CHARACTERISTIC_UUID16 (0x0015, 0x0016, UUID_CHARACTERISTIC_DEVICE_NAME,
-    					   LEGATTDB_CHAR_PROP_READ, LEGATTDB_PERM_READABLE, 16),
+    					   LEGATTDB_CHAR_PROP_READ, LEGATTDB_PERM_READABLE | LEGATTDB_PERM_WRITABLE, 16),
        'D','r','u','m','P','a','n','t','s',0x00,0x00,0x00,0x00,0x00,0x00,0x00,
 
     // Handle 0x17: characteristic Appearance, handle 0x18 characteristic value.
@@ -245,7 +245,7 @@ const UINT8 hello_sensor_gatt_database[]=
 
 const BLE_PROFILE_CFG hello_sensor_cfg =
 {
-    /*.fine_timer_interval            =*/ 20, // ms
+    /*.fine_timer_interval            =*/ 12, // ms (11.25ms minimum for HID device (from Apple guidelines section 3.6)
     /*.default_adv                    =*/ 4,    // HIGH_UNDIRECTED_DISCOVERABLE
     /*.button_adv_toggle              =*/ 0,    // pairing button make adv toggle (if 1) or always on (if 0)
     /*.high_undirect_adv_interval     =*/ 32,   // slots
