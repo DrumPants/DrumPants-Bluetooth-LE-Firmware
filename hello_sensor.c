@@ -227,11 +227,21 @@ const UINT8 hello_sensor_gatt_database[]=
 
     // Handle 0x50: characteristic Model Number, handle 0x51 characteristic value
     CHARACTERISTIC_UUID16 (0x0050, 0x0051, UUID_CHARACTERISTIC_MODEL_NUMBER_STRING, LEGATTDB_CHAR_PROP_READ, LEGATTDB_PERM_READABLE, 8),
-        '1','0','0','1',DRUMPANTS_FIRMWARE_VERSION,0x00,0x00,0x00,
+        '1','0','0','1',0x00,0x00,0x00,0x00,
 
     // Handle 0x52: characteristic System ID, handle 0x53 characteristic value
     CHARACTERISTIC_UUID16 (0x0052, 0x0053, UUID_CHARACTERISTIC_SYSTEM_ID, LEGATTDB_CHAR_PROP_READ, LEGATTDB_PERM_READABLE, 8),
         0x93,0xb8,0x63,0x80,0x5f,0x9f,0x91,0x71,
+
+	// Handle revision numbers for Apple compliance (Apple Bluetooth guidelines section 3.11.3)
+	CHARACTERISTIC_UUID16 (0x0054, 0x0055, UUID_CHARACTERISTIC_FIRMWARE_REVISION_STRING, LEGATTDB_CHAR_PROP_READ, LEGATTDB_PERM_READABLE, 8),
+		DRUMPANTS_FIRMWARE_VERSION,0x00,0x00,0x00,0x00,0x00,0x00,0x00,
+
+	// Handle revision numbers for Apple compliance (Apple Bluetooth guidelines section 3.11.3)
+	CHARACTERISTIC_UUID16 (0x0056, 0x0057, UUID_CHARACTERISTIC_SOFTWARE_REVISION_STRING, LEGATTDB_CHAR_PROP_READ, LEGATTDB_PERM_READABLE, 8),
+		'1','0','0','0',0x00,0x00,0x00,0x00,
+
+
 
     // Handle 0x61: Battery service
     // This is an optional service which allows peer to read current battery level.
