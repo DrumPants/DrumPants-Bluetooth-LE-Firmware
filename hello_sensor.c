@@ -234,13 +234,19 @@ const UINT8 hello_sensor_gatt_database[]=
     CHARACTERISTIC_UUID16 (0x0052, 0x0053, UUID_CHARACTERISTIC_SYSTEM_ID, LEGATTDB_CHAR_PROP_READ, LEGATTDB_PERM_READABLE, 8),
         0x93,0xb8,0x63,0x80,0x5f,0x9f,0x91,0x71,
 
-//	// Handle revision numbers for Apple compliance (Apple Bluetooth guidelines section 3.11.3)
-//	CHARACTERISTIC_UUID16 (0x0054, 0x0055, UUID_CHARACTERISTIC_FIRMWARE_REVISION_STRING, LEGATTDB_CHAR_PROP_READ, LEGATTDB_PERM_READABLE, 8),
-//		DRUMPANTS_FIRMWARE_VERSION,0x00,0x00,0x00,0x00,0x00,0x00,0x00,
-//
-//	// Handle revision numbers for Apple compliance (Apple Bluetooth guidelines section 3.11.3)
-//	CHARACTERISTIC_UUID16 (0x0056, 0x0057, UUID_CHARACTERISTIC_SOFTWARE_REVISION_STRING, LEGATTDB_CHAR_PROP_READ, LEGATTDB_PERM_READABLE, 8),
-//		'1','0','0','0',0x00,0x00,0x00,0x00,
+	// Handle revision numbers for Apple compliance (Apple Bluetooth guidelines section 3.11.3)
+	CHARACTERISTIC_UUID16 (0x0054, 0x0055, UUID_CHARACTERISTIC_FIRMWARE_REVISION_STRING, LEGATTDB_CHAR_PROP_READ, LEGATTDB_PERM_READABLE, 8),
+		'1','0','0',
+		// convert actual version number to string char
+#if	DRUMPANTS_FIRMWARE_VERSION > 9
+	#warning "Note: DRUMPANTS_FIRMWARE_VERSION is too high - will not be correct in UUID_CHARACTERISTIC_FIRMWARE_REVISION_STRING"
+#endif
+		(DRUMPANTS_FIRMWARE_VERSION + '0'),
+		0x00,0x00,0x00,0x00,
+
+	// Handle revision numbers for Apple compliance (Apple Bluetooth guidelines section 3.11.3)
+	CHARACTERISTIC_UUID16 (0x0056, 0x0057, UUID_CHARACTERISTIC_SOFTWARE_REVISION_STRING, LEGATTDB_CHAR_PROP_READ, LEGATTDB_PERM_READABLE, 8),
+		'1','0','0','0',0x00,0x00,0x00,0x00,
 
 //TODO: how to pick memory locations!
 

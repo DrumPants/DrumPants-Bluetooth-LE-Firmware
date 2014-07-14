@@ -24,9 +24,10 @@
 
 /**
  * The current version of the drumpants BLE firmware.
+ *
+ * Should not be higher than 9 without fixing UUID_CHARACTERISTIC_FIRMWARE_REVISION_STRING
  */
-#define DRUMPANTS_FIRMWARE_VERSION 1
-
+#define DRUMPANTS_FIRMWARE_VERSION 0x01
 
 // following definitions are shared between client and sensor
 // to avoid unnecessary GATT Discovery
