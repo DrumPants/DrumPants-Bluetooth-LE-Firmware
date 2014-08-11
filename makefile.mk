@@ -11,7 +11,7 @@
 ########################################################################
 # Add Application sources here.
 ########################################################################
-APP_SRC = hello_sensor.c uart_one_wire.c
+APP_SRC = hello_sensor.c uart_one_wire.c ws_upgrade_uart.c ws_upgrade.c
 
 ########################################################################
 ################ DO NOT MODIFY FILE BELOW THIS LINE ####################
