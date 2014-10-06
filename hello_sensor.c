@@ -263,7 +263,8 @@ const UINT8 hello_sensor_gatt_database[]=
 
 const BLE_PROFILE_CFG hello_sensor_cfg =
 {
-    /*.fine_timer_interval            =*/ 12, // ms (11.25ms minimum for HID device (from Apple guidelines section 3.6)
+		// do hyper speed fine timer - this is only checking UART and sending notifications, connection interval is governed by lel2cap_sendConnParamUpdateReq()
+    /*.fine_timer_interval            =*/ 1, // ms (11.25ms minimum for HID device (from Apple guidelines section 3.6)
     /*.default_adv                    =*/ 4,    // HIGH_UNDIRECTED_DISCOVERABLE
     /*.button_adv_toggle              =*/ 0,    // pairing button make adv toggle (if 1) or always on (if 0)
     /*.high_undirect_adv_interval     =*/ 32,   // slots
@@ -277,6 +278,7 @@ const BLE_PROFILE_CFG hello_sensor_cfg =
     /*.local_name                     =*/ "DrumPants",        // [LOCAL_NAME_LEN_MAX];
     /*.cod                            =*/ BIT16_TO_8(APPEARANCE_GENERIC_TAG),0x00, // [COD_LEN];
     /*.ver                            =*/ "1.00",         // [VERSION_LEN];
+    // TODO: remove security options!
     /*.encr_required                  =*/ (SECURITY_ENABLED | SECURITY_REQUEST),    // data encrypted and device sends security request on every connection
     /*.disc_required                  =*/ 0,    // if 1, disconnection after confirmation
     /*.test_enable                    =*/ 1,    // TEST MODE is enabled when 1
@@ -681,6 +683,17 @@ void hello_sensor_connection_up(void)
 
     bleprofile_StopConnIdleTimer();
 
+    // make sure we use the fastest connection interval possible.
+	// host may change connection interval while we are not running the test. connection interval to minimum
+    INT32 connInterval = emconninfo_getConnInterval();
+	ble_trace1("\nDefault connection interval: ", connInterval);
+    if (connInterval > CONNECTION_INTERVAL_MINIMUM)
+	{
+    	ble_trace1("\nSetting connection interval to: ", CONNECTION_INTERVAL_MINIMUM);
+		lel2cap_sendConnParamUpdateReq(CONNECTION_INTERVAL_MINIMUM, CONNECTION_INTERVAL_MINIMUM, 0, 700);
+	}
+
+
     // as we require security for every connection, we will not send any indications until
     // encryption is done.
     if (bleprofile_p_cfg->encr_required != 0)
@@ -753,6 +766,11 @@ void hello_sensor_advertisement_stopped(void)
 void hello_sensor_timeout(UINT32 arg)
 {
     //ble_trace1("hello_sensor_timeout:%d\n", hello_sensor_timer_count);
+
+	// DEBUG
+	INT32 connInterval = emconninfo_getConnInterval();
+	ble_trace2("\nConn. interval:", connInterval, 2);
+
 
     switch(arg)
     {
@@ -915,7 +933,7 @@ void hello_sensor_encryption_changed(HCI_EVT_HDR *evt)
     // We are done with initial settings, and need to stay connected.  It is a good
 	// time to slow down the pace of master polls to save power.  Following request asks
 	// host to setup polling every 100-500 msec, with link supervision timeout 7 seconds.
-    bleprofile_SendConnParamUpdateReq(80, 400, 0, 700);
+    //bleprofile_SendConnParamUpdateReq(80, 400, 0, 700);
 }
 
 UINT8 midiTestMsg[] = {0x90, 0x02, 0x0E};

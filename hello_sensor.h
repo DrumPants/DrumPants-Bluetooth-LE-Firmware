@@ -41,6 +41,11 @@
 // maximum supported is length of BLEPROFILE_DB_PDU.pdu: (LEATT_ATT_MTU-1)
 #define BLE_MAX_PACKET_LENGTH 16
 
+// the minimum desired connection interval, in BLE frames (a multiple of 1.25ms).
+// APPLE iOS minimum: 9 (11.25ms minimum for HID device (from Apple guidelines section 3.6))
+// Android minimum: 6??? (6 is BLE spec minimum)
+#define CONNECTION_INTERVAL_MINIMUM 9
+
 // Please note that all UUIDs need to be reversed when publishing in the database
 
 // {1B7E8251-2877-41C3-B46E-CF057C562023}
