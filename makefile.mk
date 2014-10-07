@@ -13,6 +13,11 @@
 ########################################################################
 APP_SRC = hello_sensor.c uart_one_wire.c ws_upgrade_uart.c ws_upgrade.c
 
+
+# This application requires a special patch to notify before a notification is noticed
+# see http://community.broadcom.com/message/6375#6375
+APP_PATCHES_AND_LIBS += application_poll_notification.a
+
 ########################################################################
 ################ DO NOT MODIFY FILE BELOW THIS LINE ####################
 ########################################################################

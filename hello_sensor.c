@@ -47,6 +47,8 @@
 
 #include "uart_one_wire.h"
 
+#include "application_poll_notification.h"
+
 
 /******************************************************
  *                      Constants
@@ -131,6 +133,8 @@ static void hello_sensor_start_send_message(void);
 static void hello_sensor_start_send_message_sized(UINT8 msgLen);
 static void send_uart_data_over_air();
 static void processPuartInput();
+
+void app_conn_event_callback(void* context, UINT32 unused);
 
 /******************************************************
  *               Variables Definitions
@@ -492,7 +496,8 @@ void processPuartInput() {
 		processConfigInput();
 	}
 	else {
-		send_uart_data_over_air();
+		// we used to send notifications here, but now that is done in the
+		// callback that fires right before a connection interval (app_conn_event_callback())
 	}
 }
 
@@ -651,6 +656,9 @@ void hello_sensor_create(void)
     	}
     }
 
+    // Initialize the connection event notification mechanism.
+    blecm_connectionEventNotifiationInit();
+
     //ble_trace0("\nhello_sensor_create() DONE");
 }
 
@@ -694,6 +702,12 @@ void hello_sensor_connection_up(void)
 	}
 
 
+    // Set callback to app_conn_event_callback, no context needed, 5mS before TX, default = 30mS interval for the current connection.
+    // fire 1 frame before notification goes out, or 8 since 5mS is supposedly the minimum for this function???
+    blecm_connectionEventNotifiationEnable(app_conn_event_callback, 0, MAX(8, CONNECTION_INTERVAL_MINIMUM - 1), 30000/625, emconinfo_getConnHandle());
+
+
+
     // as we require security for every connection, we will not send any indications until
     // encryption is done.
     if (bleprofile_p_cfg->encr_required != 0)
@@ -728,6 +742,10 @@ void hello_sensor_connection_up(void)
 void hello_sensor_connection_down(void)
 {
     ble_trace2("hello_sensor_connection_down:%08x%04x handle:%d reason: %d\n", hello_sensor_connection_handle, emconinfo_getDiscReason());
+
+    // Stop connection event notifications.
+    blecm_connectionEventNotifiationDisable();
+
 
 	memset (hello_sensor_remote_addr, 0, 6);
 	hello_sensor_connection_handle = 0;
@@ -837,6 +855,18 @@ void hello_sensor_fine_timeout(UINT32 arg)
 
     // button control
     //bleprofile_ReadButton();
+}
+
+/**
+ * called right before the connection interval - this is where we should send a notification!
+ *
+ * Uses a special library, see http://community.broadcom.com/message/6375#6375
+ */
+void app_conn_event_callback(void* context, UINT32 unused)
+
+{
+     // TX coming up in 1mS from now.
+	send_uart_data_over_air();
 }
 
 //
