@@ -267,8 +267,8 @@ const UINT8 hello_sensor_gatt_database[]=
 
 const BLE_PROFILE_CFG hello_sensor_cfg =
 {
-		// do hyper speed fine timer - this is only checking UART and sending notifications, connection interval is governed by lel2cap_sendConnParamUpdateReq()
-    /*.fine_timer_interval            =*/ 1, // ms (11.25ms minimum for HID device (from Apple guidelines section 3.6)
+		// do hyper speed fine timer - this is only checking config PUART, connection interval is governed by lel2cap_sendConnParamUpdateReq()
+    /*.fine_timer_interval            =*/ 12, // ms (11.25ms minimum for HID device (from Apple guidelines section 3.6)
     /*.default_adv                    =*/ 4,    // HIGH_UNDIRECTED_DISCOVERABLE
     /*.button_adv_toggle              =*/ 0,    // pairing button make adv toggle (if 1) or always on (if 0)
     /*.high_undirect_adv_interval     =*/ 32,   // slots
@@ -703,8 +703,9 @@ void hello_sensor_connection_up(void)
 
 
     // Set callback to app_conn_event_callback, no context needed, 5mS before TX, default = 30mS interval for the current connection.
-    // fire 1 frame before notification goes out, or 8 since 5mS is supposedly the minimum for this function???
-    blecm_connectionEventNotifiationEnable(app_conn_event_callback, 0, MAX(8, CONNECTION_INTERVAL_MINIMUM - 1), 30000/625, emconinfo_getConnHandle());
+    // note these timing parameters are in SLOTS (.625ms), not FRAMES (1.25ms). THEY MUST BE EVEN!
+    // fire 2 frames before notification goes out
+    blecm_connectionEventNotifiationEnable(app_conn_event_callback, 0, 4, 30000/625, emconinfo_getConnHandle());
 
 
 
