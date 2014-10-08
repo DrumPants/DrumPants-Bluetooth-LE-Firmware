@@ -656,6 +656,27 @@ void hello_sensor_database_init(void)
     blebat_Init();
 }
 
+int intervalMin = 0;
+int slaveMin = 0;
+void ensureFastestConnectionInterval(void) {
+	// make sure we use the fastest connection interval possible.
+	// host may change connection interval while we are not running the test. connection interval to minimum
+	INT32 connInterval = emconninfo_getConnInterval();
+	ble_trace1("\nDefault connection interval: %d", connInterval);
+	if (connInterval > CONNECTION_INTERVAL_MINIMUM)
+	{
+		int newInterval = CONNECTION_INTERVAL_MINIMUM + intervalMin;
+		ble_trace1("\nSetting connection interval to: %d\n", newInterval);
+		lel2cap_sendConnParamUpdateReq(newInterval, newInterval + 16, slaveMin, 400);
+
+		if (++intervalMin > 50) {
+			intervalMin = -3;
+			slaveMin++;
+		}
+	}
+}
+
+
 // This function will be called on every connection establishmen
 void hello_sensor_connection_up(void)
 {
@@ -678,15 +699,7 @@ void hello_sensor_connection_up(void)
 
     bleprofile_StopConnIdleTimer();
 
-    // make sure we use the fastest connection interval possible.
-	// host may change connection interval while we are not running the test. connection interval to minimum
-    INT32 connInterval = emconninfo_getConnInterval();
-	ble_trace1("\nDefault connection interval: ", connInterval);
-    if (connInterval > CONNECTION_INTERVAL_MINIMUM)
-	{
-    	ble_trace1("\nSetting connection interval to: ", CONNECTION_INTERVAL_MINIMUM);
-		lel2cap_sendConnParamUpdateReq(CONNECTION_INTERVAL_MINIMUM, 16, 0, 400);
-	}
+    ensureFastestConnectionInterval();
 
 
     // Set callback to app_conn_event_callback, no context needed, 5mS before TX, default = 30mS interval for the current connection.
@@ -774,8 +787,7 @@ void hello_sensor_timeout(UINT32 arg)
     //ble_trace1("hello_sensor_timeout:%d\n", hello_sensor_timer_count);
 
 	// DEBUG
-	INT32 connInterval = emconninfo_getConnInterval();
-	ble_trace2("\nConn. interval:", connInterval, 2);
+	ensureFastestConnectionInterval();
 
 
     switch(arg)
