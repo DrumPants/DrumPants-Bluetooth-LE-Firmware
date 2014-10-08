@@ -44,7 +44,6 @@
 // the minimum desired connection interval, in BLE frames (a multiple of 1.25ms).
 // APPLE iOS minimum: 9 (11.25ms minimum for HID device (from Apple guidelines section 3.6))
 // Android minimum: 6??? (6 is BLE spec minimum)
-// THIS MUST BE ODD - since blecm_connectionEventNotifiationEnable() requires even number of frames
 #define CONNECTION_INTERVAL_MINIMUM 9
 
 // Please note that all UUIDs need to be reversed when publishing in the database

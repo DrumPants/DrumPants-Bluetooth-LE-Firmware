@@ -704,8 +704,8 @@ void hello_sensor_connection_up(void)
 
     // Set callback to app_conn_event_callback, no context needed, 5mS before TX, default = 30mS interval for the current connection.
     // note these timing parameters are in SLOTS (.625ms), not FRAMES (1.25ms). THEY MUST BE EVEN!
-    // fire 2 frames before notification goes out
-    blecm_connectionEventNotifiationEnable(app_conn_event_callback, 0, 4, 30000/625, emconinfo_getConnHandle());
+    // fire 1 frames BEFORE notification goes out (hence the negative)
+    blecm_connectionEventNotifiationEnable(app_conn_event_callback, 0, -2, 30000/625, emconinfo_getConnHandle());
 
 
 
