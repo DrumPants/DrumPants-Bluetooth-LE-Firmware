@@ -700,7 +700,7 @@ void hello_sensor_connection_up(void)
     if (connInterval > CONNECTION_INTERVAL_MINIMUM)
 	{
     	ble_trace1("\nSetting connection interval to: ", CONNECTION_INTERVAL_MINIMUM);
-		lel2cap_sendConnParamUpdateReq(CONNECTION_INTERVAL_MINIMUM, CONNECTION_INTERVAL_MINIMUM, 0, 700);
+		lel2cap_sendConnParamUpdateReq(CONNECTION_INTERVAL_MINIMUM, 16, 0, 400);
 	}
 
 
