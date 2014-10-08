@@ -200,6 +200,8 @@ const UINT8 hello_sensor_gatt_database[]=
                            LEGATTDB_CHAR_PROP_READ | LEGATTDB_CHAR_PROP_NOTIFY | LEGATTDB_CHAR_PROP_INDICATE,
                            LEGATTDB_PERM_READABLE, BLE_MAX_PACKET_LENGTH),
         0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,
+        // for 20 chars long (Broadcom maximum):
+        0x00,0x00,0x00,0x00,
 
 	// Handle 0x2b: Characteristic Client Configuration Descriptor.
     // This is standard GATT characteristic descriptor.  2 byte value 0 means that

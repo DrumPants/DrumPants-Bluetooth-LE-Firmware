@@ -39,7 +39,9 @@
 
 // the maximum length of a characteristic notification packet to send over BLE connection.
 // maximum supported is length of BLEPROFILE_DB_PDU.pdu: (LEATT_ATT_MTU-1)
-#define BLE_MAX_PACKET_LENGTH 16
+// NOTE: if you change this, you must also add more 0x00s to the "CHARACTERISTIC_UUID128 (0x0029, HANDLE_HELLO_SENSOR_VALUE_NOTIFY," descriptor default value.
+// 20 is the broadcom maximum (max 23-1, plus 2 for the something or other): http://community.broadcom.com/message/7243#7243 and http://community.broadcom.com/message/5175#5175
+#define BLE_MAX_PACKET_LENGTH (MIN(20, LEATT_ATT_MTU-1))
 
 // the minimum desired connection interval, in BLE frames (a multiple of 1.25ms).
 // APPLE iOS minimum: 9 (11.25ms minimum for HID device (from Apple guidelines section 3.6))
