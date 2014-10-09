@@ -656,8 +656,24 @@ void hello_sensor_database_init(void)
     blebat_Init();
 }
 
-int intervalMin = 0;
-int slaveMin = 0;
+/**
+ * suggestions from http://electronics.stackexchange.com/questions/30964/improving-throughput-of-a-bluetooth-low-energy-connection:
+ *
+ * Conn_Interval = 0x000f = 18.75 ms
+Conn_Latency  = 0x0000
+Supervision_Timeout = 0x00fc
+ */
+#if ENABLE_CONNECTION_INTERVAL_TESTING
+// start at the absolute minimums we can try, and move up from there.
+UINT16 intervalMin = 6;
+UINT16 slaveMin = 2;
+UINT16 maxIntervalDiff = 0;
+#else
+UINT16 intervalMin = CONNECTION_INTERVAL_MINIMUM;
+UINT16 slaveMin = CONNECTION_INTERVAL_SLAVE_LATENCY;
+UINT16 maxIntervalDiff = CONNECTION_INTERVAL_MAXIMUM - CONNECTION_INTERVAL_MINIMUM;
+#endif
+
 void ensureFastestConnectionInterval(void) {
 	// make sure we use the fastest connection interval possible.
 	// host may change connection interval while we are not running the test. connection interval to minimum
@@ -665,14 +681,21 @@ void ensureFastestConnectionInterval(void) {
 	ble_trace1("\nDefault connection interval: %d", connInterval);
 	if (connInterval > CONNECTION_INTERVAL_MINIMUM)
 	{
-		int newInterval = CONNECTION_INTERVAL_MINIMUM + intervalMin;
-		ble_trace1("\nSetting connection interval to: %d\n", newInterval);
-		lel2cap_sendConnParamUpdateReq(newInterval, newInterval + 16, slaveMin, 400);
+		UINT16 intervalMax = intervalMin + maxIntervalDiff;
+		ble_trace3("\nSetting connection interval to: %d, max: %d slaveMin: %d\n", intervalMin, intervalMax, slaveMin);
+		lel2cap_sendConnParamUpdateReq(intervalMin, intervalMax, slaveMin, 500);
 
-		if (++intervalMin > 50) {
-			intervalMin = -3;
-			slaveMin++;
+#if ENABLE_CONNECTION_INTERVAL_TESTING
+		if (++intervalMin > 16) {
+			// start over at the very minimum (6)
+			intervalMin = 6;
+
+			if (++maxIntervalDiff > 20) {
+				maxIntervalDiff = 0;
+				slaveMin++;
+			}
 		}
+#endif
 	}
 }
 

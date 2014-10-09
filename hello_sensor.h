@@ -43,10 +43,46 @@
 // 20 is the broadcom maximum (max 23-1, plus 2 for the something or other): http://community.broadcom.com/message/7243#7243 and http://community.broadcom.com/message/5175#5175
 #define BLE_MAX_PACKET_LENGTH (MIN(20, LEATT_ATT_MTU-1))
 
+
+
+
+
+/*****************************
+ *
+ *  CONNECTION LATENCY SETTINGS
+ *
+ *****************************/
+
 // the minimum desired connection interval, in BLE frames (a multiple of 1.25ms).
 // APPLE iOS minimum: 9 (11.25ms minimum for HID device (from Apple guidelines section 3.6))
 // Android minimum: 6??? (6 is BLE spec minimum)
 #define CONNECTION_INTERVAL_MINIMUM 9
+
+// the maximum desired connection interval, in BLE frames (a multiple of 1.25ms).
+// from testing, it seems that iOS 7 gives a interval of 39 when given min: 8, max: 24, slave latency 3. but guidlines require 9, 25, 3. so that's what we do. blarg.
+// according to iOS guidelines, this must be at least 20ms more than CONNECTION_INTERVAL_MINIMUM
+#define CONNECTION_INTERVAL_MAXIMUM 25
+
+// requested number of frames the slave can ignore read requests from the master.
+// Apple guidelines say this must be <= 4, but 3 seems to work better.
+// bigger is better because we're focused on sending notifications; we don't care when the master wants to read us.
+#define CONNECTION_INTERVAL_SLAVE_LATENCY 3
+
+// when 1, cycles through different combinations of connection intervals and prints results.
+// use to find the best combinations for that device, then go cry in a corner because they're all different.
+// DISABLE FOR RELASE BUILDS!!!
+#define ENABLE_CONNECTION_INTERVAL_TESTING 0
+
+
+
+
+
+
+/*****************************
+ *
+ *  UUIDS
+ *
+ *****************************/
 
 // Please note that all UUIDs need to be reversed when publishing in the database
 
