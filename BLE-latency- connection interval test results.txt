@@ -1,0 +1,73 @@
+=====
+iOS 7 : ipad retina
+=====
+
+
+ interval to: 10, max: 26 slaveMin: 0
+  connection interval: 24
+
+
+g connection interval to: 8, max: 24 slaveMin: 1
+ connection interval: 24
+
+
+ connection interval to: 8, max: 25 slaveMin: 1
+ t connection interval: 24
+
+ting connection interval to: 9, max: 26 slaveMin: 1
+t connection interval: 24
+
+
+nnection interval to: 8, max: 24 slaveMin: 2
+ connection interval: 24
+
+******
+ connection interval to: 8, max: 24 slaveMin: 3
+ t connection interval: 24
+******
+
+
+
+
+====
+Android 4.3 : SGS3
+====
+
+to: 9, max: 25 slaveMin: 0
+ connection interval: 39
+
+
+******
+ connection interval to: 8, max: 24 slaveMin: 3
+ connection interval: 39
+
+******
+
+
+
+ connection interval to: 6, max: 23 slaveMin: 0
+ connection interval: 39
+
+
+YIKES:
+connection interval to: 6, max: 24 slaveMin: 3
+efault connection interval: 42
+
+
+connection interval to: 24, max: 40 slaveMin: 4
+lt connection interval: 39
+
+
+
+
+
+
+====
+Android 4.4 : SGS5
+====
+
+Setting connection interval to: 7, max: 7 slaveMin: 3
+Default connection interval: 6
+
+
+
