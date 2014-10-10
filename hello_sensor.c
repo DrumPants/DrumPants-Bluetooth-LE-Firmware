@@ -811,7 +811,9 @@ void hello_sensor_timeout(UINT32 arg)
     //ble_trace1("hello_sensor_timeout:%d\n", hello_sensor_timer_count);
 
 	// DEBUG
+#if ENABLE_CONNECTION_INTERVAL_TESTING
 	ensureFastestConnectionInterval();
+#endif
 
 
     switch(arg)
