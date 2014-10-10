@@ -199,12 +199,15 @@ const UINT8 hello_sensor_gatt_database[]=
         0x00,0x00,
 
     // Handle 0x2c: characteristic Hello Configuration, handle 0x2d characteristic value
-    // The configuration consists of 1 bytes which indicates how many notifications or
-    // indications to send when user pushes the button.
+    // The configuration consists of 4 bytes to specify requested connection interval params:
+    //	byte 1: min interval (in frames)
+    //	byte 2: max interval (in frames)
+    //	byte 3: slave latency
+    //	byte 4: connection timeout (in 100ms) (not used currently)
     CHARACTERISTIC_UUID128_WRITABLE (0x002c, HANDLE_HELLO_SENSOR_CONFIGURATION, UUID_HELLO_CHARACTERISTIC_CONFIG,
                                      LEGATTDB_CHAR_PROP_READ | LEGATTDB_CHAR_PROP_WRITE,
-                                     LEGATTDB_PERM_READABLE | LEGATTDB_PERM_WRITE_CMD | LEGATTDB_PERM_WRITE_REQ,  1),
-        0x00,
+                                     LEGATTDB_PERM_READABLE | LEGATTDB_PERM_WRITE_CMD | LEGATTDB_PERM_WRITE_REQ,  4),
+        CONNECTION_INTERVAL_MINIMUM,CONNECTION_INTERVAL_MAXIMUM,CONNECTION_INTERVAL_SLAVE_LATENCY,0x00,
 
     // Handle 0x4d: Device Info service
     // Device Information service helps peer to identify manufacture or vendor
@@ -815,6 +818,9 @@ void hello_sensor_timeout(UINT32 arg)
 	ensureFastestConnectionInterval();
 #endif
 
+	INT32 connInterval = emconninfo_getConnInterval();
+	ble_trace1("\nDefault connection interval: %d", connInterval);
+	ble_trace1("\ninvervalMin: %d", intervalMin);
 
     switch(arg)
     {
@@ -959,8 +965,12 @@ void hello_sensor_encryption_changed(HCI_EVT_HDR *evt)
 	bleprofile_WriteHandle(HANDLE_HELLO_SENSOR_CLIENT_CONFIGURATION_DESCRIPTOR, &db_pdu);
 
     // Setup value of our configuration in GATT database
-    db_pdu.len = 1;
-    db_pdu.pdu[0] = hello_sensor_hostinfo.number_of_blinks;
+    db_pdu.len = 4;
+// TODO: keep these values in NVRAM???
+    db_pdu.pdu[0] = intervalMin;
+    db_pdu.pdu[1] = intervalMin + maxIntervalDiff;
+    db_pdu.pdu[2] = slaveMin;
+    db_pdu.pdu[3] = 500 / 100;
 
     bleprofile_WriteHandle(HANDLE_HELLO_SENSOR_CONFIGURATION, &db_pdu);
 
@@ -1082,13 +1092,16 @@ int hello_sensor_write_handler(LEGATTDB_ENTRY_HDR *p)
         ble_trace1("hello_sensor_write_handler: client_configuration %04x\n", hello_sensor_hostinfo.characteristic_client_configuration);
     }
     // User can change number of blinks to send when button is pushed
-    else if ((len == 1) && (handle == HANDLE_HELLO_SENSOR_CONFIGURATION))
+    else if ((len >= 3) && (handle == HANDLE_HELLO_SENSOR_CONFIGURATION))
     {
-        hello_sensor_hostinfo.number_of_blinks = attrPtr[0];
-    	if (hello_sensor_hostinfo.number_of_blinks != 0)
-    	{
-    	    bleprofile_LEDBlink(250, 250, hello_sensor_hostinfo.number_of_blinks);
-    	}
+    	intervalMin = attrPtr[0];
+    	maxIntervalDiff = attrPtr[1] - intervalMin;
+    	slaveMin = attrPtr[2];
+// TODO: enable this
+    	//connectionTimeout = attrPtr[3] * 100; // since they send to us in 100ms units, but we use 10ms units.
+
+    	// now send the request to the master device to change params.
+    	ensureFastestConnectionInterval();
     }
     else
     {
