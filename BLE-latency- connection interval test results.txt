@@ -27,6 +27,13 @@ nnection interval to: 8, max: 24 slaveMin: 2
 ******
 
 
+http://lists.apple.com/archives/bluetooth-dev/2013/Mar/msg00047.html:
+
+min: 8
+max: 16
+should give 18ms!!
+
+
 
 
 ====
