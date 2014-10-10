@@ -730,7 +730,9 @@ void hello_sensor_connection_up(void)
     // fire 1 frames BEFORE notification goes out (hence the negative)
     blecm_connectionEventNotifiationEnable(app_conn_event_callback, 0, -2, 30000/625, emconinfo_getConnHandle());
 
-
+    // default to notifications on???
+    hello_sensor_hostinfo.characteristic_client_configuration = 0;//CCC_NOTIFICATION;
+    hello_sensor_hostinfo.number_of_blinks = 0;
 
     // as we require security for every connection, we will not send any indications until
     // encryption is done.
@@ -753,8 +755,7 @@ void hello_sensor_connection_up(void)
     bda =(UINT8 *)emconninfo_getPeerPubAddr();
 
     memcpy(hello_sensor_hostinfo.bdaddr, bda, sizeof(BD_ADDR));
-    hello_sensor_hostinfo.characteristic_client_configuration = 0;
-    hello_sensor_hostinfo.number_of_blinks = 0;
+
 
 	writtenbyte = bleprofile_WriteNVRAM(NVRAM_ID_HOST_LIST, sizeof(hello_sensor_hostinfo), (UINT8 *)&hello_sensor_hostinfo);
     ble_trace1("NVRAM write:%04x\n", writtenbyte);
@@ -915,8 +916,9 @@ void hello_sensor_smp_bond_result(LESMP_PARING_RESULT  result)
         bda = (UINT8 *)emconninfo_getPeerPubAddr();
 
         memcpy(hello_sensor_hostinfo.bdaddr, bda, sizeof(BD_ADDR));
-        hello_sensor_hostinfo.characteristic_client_configuration = 0;
-        hello_sensor_hostinfo.number_of_blinks = 0;
+        // don't overwrite notification subscriptions, since master app has probably already changed them before pairing finished!
+//        hello_sensor_hostinfo.characteristic_client_configuration = 0;
+//        hello_sensor_hostinfo.number_of_blinks = 0;
 
         ble_trace2("Bond successful %08x%04x\n", (bda[5] << 24) + (bda[4] << 16) + (bda[3] << 8) + bda[2], (bda[1] << 8) + bda[0]);
         writtenbyte = bleprofile_WriteNVRAM(NVRAM_ID_HOST_LIST, sizeof(hello_sensor_hostinfo), (UINT8 *)&hello_sensor_hostinfo);
