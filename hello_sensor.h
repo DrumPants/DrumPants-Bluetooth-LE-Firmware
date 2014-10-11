@@ -68,6 +68,11 @@
 // bigger is better because we're focused on sending notifications; we don't care when the master wants to read us.
 #define CONNECTION_INTERVAL_SLAVE_LATENCY 3
 
+// connection supervision timeout value in 100ms units.
+// Apple guidelines say it must be <= 6 seconds, but 5 seconds seems to work better.
+// bigger is better because we don't want to disconnect if they aren't playing notes for a few seconds.
+#define CONNECTION_INTERVAL_TIMEOUT 50
+
 // when 1, cycles through different combinations of connection intervals and prints results.
 // use to find the best combinations for that device, then go cry in a corner because they're all different.
 // DISABLE FOR RELASE BUILDS!!!

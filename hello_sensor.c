@@ -89,8 +89,13 @@ typedef PACKED struct
     // Current value of the client configuration descriptor
     UINT16  characteristic_client_configuration;
 
-    // sensor configuration. number of times to blink when button is pushed.
-    UINT8   number_of_blinks;
+    // for connection latency configuration
+    UINT8   intervalMin;
+    UINT8   intervalMax;
+    UINT8   slaveLatency;
+
+    // in 100ms units
+    UINT8   connectionTimeout;
 
 }  HOSTINFO;
 #pragma pack()
@@ -668,35 +673,41 @@ Supervision_Timeout = 0x00fc
  */
 #if ENABLE_CONNECTION_INTERVAL_TESTING
 // start at the absolute minimums we can try, and move up from there.
-UINT16 intervalMin = 6;
-UINT16 slaveMin = 2;
 UINT16 maxIntervalDiff = 0;
-#else
-UINT16 intervalMin = CONNECTION_INTERVAL_MINIMUM;
-UINT16 slaveMin = CONNECTION_INTERVAL_SLAVE_LATENCY;
-UINT16 maxIntervalDiff = CONNECTION_INTERVAL_MAXIMUM - CONNECTION_INTERVAL_MINIMUM;
 #endif
 
-void ensureFastestConnectionInterval(void) {
+void sendConnectionIntervalRequest(void) {
 	// make sure we use the fastest connection interval possible.
 	// host may change connection interval while we are not running the test. connection interval to minimum
 	INT32 connInterval = emconninfo_getConnInterval();
 	ble_trace1("\nDefault connection interval: %d", connInterval);
-	if (connInterval > CONNECTION_INTERVAL_MINIMUM)
+	if (connInterval > hello_sensor_hostinfo.intervalMin)
 	{
-		UINT16 intervalMax = intervalMin + maxIntervalDiff;
-		ble_trace3("\nSetting connection interval to: %d, max: %d slaveMin: %d\n", intervalMin, intervalMax, slaveMin);
-		lel2cap_sendConnParamUpdateReq(intervalMin, intervalMax, slaveMin, 500);
+		UINT16 connectionTimeout = hello_sensor_hostinfo.connectionTimeout * 10; // since they send to us in 100ms units, but function expects 10ms units.
+		ble_trace4("\nSetting connection interval to: %d, max: %d slave: %d, timeout: %d\n",
+				hello_sensor_hostinfo.intervalMin,
+				hello_sensor_hostinfo.intervalMax,
+				hello_sensor_hostinfo.slaveLatency,
+				connectionTimeout);
+
+		lel2cap_sendConnParamUpdateReq(
+				hello_sensor_hostinfo.intervalMin,
+				hello_sensor_hostinfo.intervalMax,
+				hello_sensor_hostinfo.slaveLatency,
+				connectionTimeout);
 
 #if ENABLE_CONNECTION_INTERVAL_TESTING
-		if (++intervalMin > 16) {
+		if (++hello_sensor_hostinfo.intervalMin > 16) {
 			// start over at the very minimum (6)
-			intervalMin = 6;
+			hello_sensor_hostinfo.intervalMin = 6;
 
 			if (++maxIntervalDiff > 20) {
 				maxIntervalDiff = 0;
-				slaveMin++;
+
+				hello_sensor_hostinfo.slaveLatency++;
 			}
+
+			hello_sensor_hostinfo.intervalMax = hello_sensor_hostinfo.intervalMin + maxIntervalDiff;
 		}
 #endif
 	}
@@ -725,7 +736,15 @@ void hello_sensor_connection_up(void)
 
     bleprofile_StopConnIdleTimer();
 
-    ensureFastestConnectionInterval();
+    // default to notifications on???
+    hello_sensor_hostinfo.characteristic_client_configuration = 0;//CCC_NOTIFICATION;
+
+    // set defaults for connection intervals and then request them from master
+    hello_sensor_hostinfo.intervalMin = CONNECTION_INTERVAL_MINIMUM;
+    hello_sensor_hostinfo.intervalMax = CONNECTION_INTERVAL_MAXIMUM;
+    hello_sensor_hostinfo.slaveLatency = CONNECTION_INTERVAL_SLAVE_LATENCY;
+    hello_sensor_hostinfo.connectionTimeout = CONNECTION_INTERVAL_TIMEOUT;
+    sendConnectionIntervalRequest();
 
 
     // Set callback to app_conn_event_callback, no context needed, 5mS before TX, default = 30mS interval for the current connection.
@@ -733,9 +752,6 @@ void hello_sensor_connection_up(void)
     // fire 1 frames BEFORE notification goes out (hence the negative)
     blecm_connectionEventNotifiationEnable(app_conn_event_callback, 0, -2, 30000/625, emconinfo_getConnHandle());
 
-    // default to notifications on???
-    hello_sensor_hostinfo.characteristic_client_configuration = 0;//CCC_NOTIFICATION;
-    hello_sensor_hostinfo.number_of_blinks = 0;
 
     // as we require security for every connection, we will not send any indications until
     // encryption is done.
@@ -813,20 +829,17 @@ void hello_sensor_timeout(UINT32 arg)
 {
     //ble_trace1("hello_sensor_timeout:%d\n", hello_sensor_timer_count);
 
-	// DEBUG
-#if ENABLE_CONNECTION_INTERVAL_TESTING
-	ensureFastestConnectionInterval();
-#endif
-
-	INT32 connInterval = emconninfo_getConnInterval();
-	ble_trace1("\nDefault connection interval: %d", connInterval);
-	ble_trace1("\ninvervalMin: %d", intervalMin);
-
     switch(arg)
     {
         case BLEPROFILE_GENERIC_APP_TIMER:
         {
             hello_sensor_timer_count++;
+
+        	// DEBUG
+#if ENABLE_CONNECTION_INTERVAL_TESTING
+        	sendConnectionIntervalRequest();
+#endif
+
         }
         break;
     }
@@ -966,11 +979,10 @@ void hello_sensor_encryption_changed(HCI_EVT_HDR *evt)
 
     // Setup value of our configuration in GATT database
     db_pdu.len = 4;
-// TODO: keep these values in NVRAM???
-    db_pdu.pdu[0] = intervalMin;
-    db_pdu.pdu[1] = intervalMin + maxIntervalDiff;
-    db_pdu.pdu[2] = slaveMin;
-    db_pdu.pdu[3] = 500 / 100;
+    db_pdu.pdu[0] = hello_sensor_hostinfo.intervalMin;
+    db_pdu.pdu[1] = hello_sensor_hostinfo.intervalMax;
+    db_pdu.pdu[2] = hello_sensor_hostinfo.slaveLatency;
+    db_pdu.pdu[3] = hello_sensor_hostinfo.connectionTimeout;
 
     bleprofile_WriteHandle(HANDLE_HELLO_SENSOR_CONFIGURATION, &db_pdu);
 
@@ -979,7 +991,7 @@ void hello_sensor_encryption_changed(HCI_EVT_HDR *evt)
                 (hello_sensor_hostinfo.bdaddr[3] << 8) + hello_sensor_hostinfo.bdaddr[2],
                 (hello_sensor_hostinfo.bdaddr[1] << 8) + hello_sensor_hostinfo.bdaddr[0],
                 hello_sensor_hostinfo.characteristic_client_configuration,
-                hello_sensor_hostinfo.number_of_blinks);
+                hello_sensor_hostinfo.intervalMin);
 
     // If there are outstanding messages that we could not send out because
     // connection was not up and/or encrypted, send them now.  If we are sending
@@ -1079,9 +1091,6 @@ int hello_sensor_write_handler(LEGATTDB_ENTRY_HDR *p)
     int    len      = legattdb_getAttrValueLen(p);
     UINT8  *attrPtr = legattdb_getAttrValue(p);
 
-    // do some noise
-    bleprofile_BUZBeep(bleprofile_p_cfg->buz_on_ms);
-
     ble_trace1("hello_sensor_write_handler: handle %04x\n", handle);
 
     // By writing into Characteristic Client Configuration descriptor
@@ -1092,16 +1101,15 @@ int hello_sensor_write_handler(LEGATTDB_ENTRY_HDR *p)
         ble_trace1("hello_sensor_write_handler: client_configuration %04x\n", hello_sensor_hostinfo.characteristic_client_configuration);
     }
     // User can change number of blinks to send when button is pushed
-    else if ((len >= 3) && (handle == HANDLE_HELLO_SENSOR_CONFIGURATION))
+    else if ((len == 4) && (handle == HANDLE_HELLO_SENSOR_CONFIGURATION))
     {
-    	intervalMin = attrPtr[0];
-    	maxIntervalDiff = attrPtr[1] - intervalMin;
-    	slaveMin = attrPtr[2];
-// TODO: enable this
-    	//connectionTimeout = attrPtr[3] * 100; // since they send to us in 100ms units, but we use 10ms units.
+    	hello_sensor_hostinfo.intervalMin = attrPtr[0];
+    	hello_sensor_hostinfo.intervalMax = attrPtr[1];
+    	hello_sensor_hostinfo.slaveLatency = attrPtr[2];
+    	hello_sensor_hostinfo.connectionTimeout = attrPtr[3];
 
     	// now send the request to the master device to change params.
-    	ensureFastestConnectionInterval();
+    	sendConnectionIntervalRequest();
     }
     else
     {
