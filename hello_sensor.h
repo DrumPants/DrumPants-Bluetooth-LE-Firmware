@@ -56,12 +56,12 @@
 // the minimum desired connection interval, in BLE frames (a multiple of 1.25ms).
 // APPLE iOS minimum: 9 (11.25ms minimum for HID device (from Apple guidelines section 3.6))
 // Android minimum: 6??? (6 is BLE spec minimum)
-#define CONNECTION_INTERVAL_MINIMUM 9
+#define CONNECTION_INTERVAL_MINIMUM 8
 
 // the maximum desired connection interval, in BLE frames (a multiple of 1.25ms).
 // from testing, it seems that iOS 7 gives a interval of 39 when given min: 8, max: 24, slave latency 3. but guidlines require 9, 25, 3. so that's what we do. blarg.
 // according to iOS guidelines, this must be at least 20ms more than CONNECTION_INTERVAL_MINIMUM
-#define CONNECTION_INTERVAL_MAXIMUM 25
+#define CONNECTION_INTERVAL_MAXIMUM 16
 
 // requested number of frames the slave can ignore read requests from the master.
 // Apple guidelines say this must be <= 4, but 3 seems to work better.

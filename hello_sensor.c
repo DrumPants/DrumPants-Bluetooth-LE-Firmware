@@ -497,9 +497,8 @@ void processPuartInput() {
 }
 
 void send_uart_data_over_air() {
-	 // only send valid MIDI messages - UART is splitting them into 1 byte then 2 byte packets
 	int len = CBUF_Len(txBuffer);
-	if (len > 1) {// && len % 3 == 0) { // assumes MIDI messages are always 3 in length
+	if (len > 0) { // always send whatever we have because this gets called only once per connection interval
 
 		ble_trace1("Sending %d bytes over air\n", len);
 
@@ -750,7 +749,7 @@ void hello_sensor_connection_up(void)
     // Set callback to app_conn_event_callback, no context needed, 5mS before TX, default = 30mS interval for the current connection.
     // note these timing parameters are in SLOTS (.625ms), not FRAMES (1.25ms). THEY MUST BE EVEN!
     // fire 1 frames BEFORE notification goes out (hence the negative)
-    blecm_connectionEventNotifiationEnable(app_conn_event_callback, 0, -2, 30000/625, emconinfo_getConnHandle());
+    blecm_connectionEventNotifiationEnable(app_conn_event_callback, 0, -2, 8, emconinfo_getConnHandle());
 
 
     // as we require security for every connection, we will not send any indications until
