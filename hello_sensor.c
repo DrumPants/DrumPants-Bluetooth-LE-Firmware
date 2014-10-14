@@ -735,8 +735,8 @@ void hello_sensor_connection_up(void)
 
     bleprofile_StopConnIdleTimer();
 
-    // default to notifications on???
-    hello_sensor_hostinfo.characteristic_client_configuration = 0;//CCC_NOTIFICATION;
+    // default to notifications on! this fixes some Android devices that finish pairing AFTER master has enabled notifications
+    hello_sensor_hostinfo.characteristic_client_configuration = CCC_NOTIFICATION;
 
     // set defaults for connection intervals and then request them from master
     hello_sensor_hostinfo.intervalMin = CONNECTION_INTERVAL_MINIMUM;
