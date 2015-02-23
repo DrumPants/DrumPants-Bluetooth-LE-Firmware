@@ -282,7 +282,7 @@ const UINT8 hello_sensor_gatt_database[]=
 const BLE_PROFILE_CFG hello_sensor_cfg =
 {
 		// do hyper speed fine timer - this is only checking config PUART, connection interval is governed by lel2cap_sendConnParamUpdateReq()
-    /*.fine_timer_interval            =*/ 12, // ms (11.25ms minimum for HID device (from Apple guidelines section 3.6)
+    /*.fine_timer_interval            =*/ 1, // ms . This is set to 1 to increment the midiTimestamp. NO LONGER AT (11.25ms minimum for HID device (from Apple guidelines section 3.6)
     /*.default_adv                    =*/ 4,    // HIGH_UNDIRECTED_DISCOVERABLE
     /*.button_adv_toggle              =*/ 0,    // pairing button make adv toggle (if 1) or always on (if 0)
     /*.high_undirect_adv_interval     =*/ 32,   // slots
@@ -408,6 +408,9 @@ APPLICATION_INIT()
 // make a big buffer just in case. this shouldn't really actually be longer than 16 bytes at a longshot.
 #define txBuffer_SIZE 128
 
+/***
+ * This stores the raw UART data from the MCU.
+ */
 volatile struct
 {
    UINT8     m_getIdx;
@@ -523,6 +526,8 @@ void send_uart_data_over_air() {
 
 		// store the current buffer message in the characteristic
 		BLEPROFILE_DB_PDU db_pdu;
+
+// TODO: is this neccessary? we're just overwriting it anyway.
 		bleprofile_ReadHandle(HANDLE_HELLO_SENSOR_VALUE_NOTIFY, &db_pdu);
 
 		// send the exact amount of bytes possible
