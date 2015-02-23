@@ -68,6 +68,8 @@
 
 #include "application_poll_notification.h"
 
+#include "midi.h"
+
 
 /******************************************************
  *                      Constants
@@ -420,7 +422,6 @@ volatile struct
 } txBuffer;
 
 
-
 /***
  * Saves the given bytes from the UART to the buffer to send to BLE.
  *
@@ -440,6 +441,9 @@ static inline UINT8 saveUARTDataToBuffer(char* buffer, int bufferLength) {
 		CBUF_Push(txBuffer, buffer[i]);
 
 		ble_trace0("-\n");
+
+		// now do the MIDI
+		saveMIDIDataToBuffer(buffer[i]);
 	 }
 	ble_trace0("\n");
 
@@ -553,6 +557,15 @@ void send_uart_data_over_air() {
 		if (error) {
 			ble_trace2("ERROR writing %d byte notification. Code: %d\n", db_pdu.len, error);
 		}
+
+		// now send the midi as well.
+// TODO: should send instead of others? so it doesn't clog the pipes?
+		db_pdu.len = getMidiPacket(&db_pdu);
+		int error = bleprofile_WriteHandle(HANDLE_MIDI_BLE_TX_VALUE_NOTIFY, &db_pdu);
+		if (error) {
+			ble_trace2("ERROR writing %d byte notification. Code: %d\n", db_pdu.len, error);
+		}
+
 
 		// send right away! this probably needs to be on a timer instead.
 		hello_sensor_start_send_message_sized(i);
@@ -897,6 +910,8 @@ void hello_sensor_timeout(UINT32 arg)
 
 void hello_sensor_fine_timeout(UINT32 arg)
 {
+	incrementMidiTimestamp();
+
     hello_sensor_fine_timer_count++;
 
     //ble_trace1("hello_sensor_fine_timeout:%d", hello_sensor_fine_timer_count);
