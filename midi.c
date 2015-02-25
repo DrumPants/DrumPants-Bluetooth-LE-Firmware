@@ -11,7 +11,7 @@
 #define IS_MIDI_STATUS(b) ((b & 0x80) != 0)
 #define MIDI_PACKET_LEN 3
 
-#define MAX_BLE_MIDI_PACKET_LEN BLE_MAX_PACKET_LENGTH
+#define MAX_BLE_MIDI_PACKET_LEN (BLE_MAX_PACKET_LENGTH - 3)
 
 #define MAX_TIMESTAMP_VALUE 8192
 
@@ -20,6 +20,8 @@
 
 int midiTimestamp = 0;
 BOOL isNewPacket = TRUE;
+
+byte curPacketEndLen = 0;
 
 /***
  * Tracks the length of the current MIDI packet.
@@ -79,17 +81,27 @@ UINT8 writeTimestamp() {
 	CBUF_Push(midiBuffer, byte);
 }
 
+
+void inline markEndOfBLEPacket() {
+	curPacketEndLen = CBUF_Len(midiBuffer);
+}
+
 UINT8 saveMIDIDataToBuffer(char midiByte) {
 
-	if (isNewPacket) {
-		writeHeader();
-	}
-
 	if (IS_MIDI_STATUS(midiByte)) {
-		// if there's no more room in this packet,
+		// we got a new status, which means the previous midi message is complete
+		// and can be sent if necessary.
+		markEndOfBLEPacket();
+
+		if (isNewPacket) {
+			writeHeader();
+		}
+
+		// if there's no more room in this packet for the full message,
 		// start the next one first and add this to that one.
 BLEARG HOW TO DO THIS???
 		if (curPacketLen + (MIDI_PACKET_LEN - curMidiEventLen) > MAX_BLE_MIDI_PACKET_LEN) {
+
 			writeHeader();
 		}
 
@@ -103,6 +115,10 @@ BLEARG HOW TO DO THIS???
 
 		writeTimestamp();
 		currentRunningStatus = midiByte;
+	}
+	else if (isNewPacket) {
+		ble_trace1("Invalid midi packet - starting in the middle of a MIDI message at start of BLE packet: %X", midiByte);
+		return 0;
 	}
 	else {
 		// assumes the longest packet can be 3 bytes
@@ -121,6 +137,7 @@ BLEARG HOW TO DO THIS???
 	return 1;
 }
 
+
 void onSendMidiPacket() {
 	isNewPacket = TRUE;
 
@@ -130,20 +147,24 @@ void onSendMidiPacket() {
 }
 
 /***
- * Sends the current buffer up to and including the last full packet.
+ * Sends the next packet in the current buffer.
+ * Returns true if there are additional full packets still in the buffer.
+ *
  */
-UINT8 getMidiPacket(BLEPROFILE_DB_PDU* buff) {
+BOOL getMidiPacket(BLEPROFILE_DB_PDU* buff) {
 
-	UINT8 len = (CBUF_Len(midiBuffer) - curMidiEventLen);
+	UINT8 len = MIN(curPacketEndLen, MAX_BLE_MIDI_PACKET_LEN);//(CBUF_Len(midiBuffer) - curMidiEventLen);
 
-	for (UINT8 i = 0; i < len - 1; i++) {
+	for (UINT8 i = 0; i < len; i++) {
 		buff->pdu[i] = CBUF_Pop(midiBuffer);
+
+		curPacketEndLen--;
 	}
 	buff->len = len;
 
 	onSendMidiPacket();
 
-	return len;
+	return (curPacketEndLen > 0);
 }
 
 

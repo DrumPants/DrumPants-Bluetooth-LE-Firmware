@@ -38,9 +38,11 @@ void incrementMidiTimestamp();
 void onSendMidiPacket();
 
 /***
- * Sends the current buffer up to and including the last full packet.
+ * Copies the next full packet in the current buffer.
+ * Returns true if there are additional full packets still in the buffer.
+ *
  */
-UINT8 getMidiPacket(BLEPROFILE_DB_PDU* buff);
+BOOL getMidiPacket(BLEPROFILE_DB_PDU* buff);
 
 
 #endif /* MIDI_H_ */
