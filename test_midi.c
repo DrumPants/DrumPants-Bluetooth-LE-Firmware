@@ -8,14 +8,14 @@
 UINT8 goodMessages[] = {
 		0x90, 60, 64,
 		0x90, 63, 127,
-		0x90, 13, 70,
+		0x90, 113, 70,
 
 		0x80, 60, 0,
 
 		0x90, 40, 4,
 		0x90, 23, 120,
 		0x80, 63, 127,
-		0x80, 13, 70,
+		0x80, 113, 70,
 
 		0x80, 40, 4,
 		0x80, 23, 120
@@ -39,6 +39,8 @@ UINT8 badMessages[] = {
 };
 
 UINT8 badMessages2[] = {
+		// start off on a stale half-message
+		60, 64,
 		0x90, 60, 64,
 		0x90, 63, 127,
 		0x90, 13, 70,
@@ -73,7 +75,11 @@ UINT8 badMessages2[] = {
 void printMidiPacket(BLEPROFILE_DB_PDU* buff) {
 	int i;
 	for (i = 0; i < buff->len; i++) {
-		printf("%X", buff->pdu[i]);
+		if (IS_MIDI_STATUS(buff->pdu[i])) {
+			printf("\n");
+		}
+
+		printf(" %X", buff->pdu[i]);
 	}
 }
 
@@ -81,6 +87,9 @@ void printMidiPacket(BLEPROFILE_DB_PDU* buff) {
 void testMessages(UINT8 midi[], int len) {
 	int timeTillNextTick = MAX_TIME_BETWEEN_NEXT_TICK;
 	int timeTillNextSend = MAX_TIME_BETWEEN_NEXT_TICK + 3;
+
+
+	printf("\nAdding %d bytes", len);
 
 	int i;
 	for (i = 0; i < len; i++) {
@@ -92,6 +101,7 @@ void testMessages(UINT8 midi[], int len) {
 			timeTillNextTick = MAX_TIME_BETWEEN_NEXT_TICK;
 		}
 
+		printf("\nReading in new MIDI data");
 		if (!saveMIDIDataToBuffer(midi[i])) {
 			printf("\nsaveMIDIDataToBuffer failed");
 		}
@@ -99,9 +109,13 @@ void testMessages(UINT8 midi[], int len) {
 		if (--timeTillNextSend <= 0) {
 			BLEPROFILE_DB_PDU buff;
 
-			while (getMidiPacket(&buff, 21)) {
-				printf("\ngotMidiPacket: ");
+			while (1) {
+				BOOL isMore = getMidiPacket(&buff, 21);
+				printf("\n\nReturned MidiPacket: ");
 				printMidiPacket(&buff);
+				printf("\n\n");
+
+				if (!isMore) break;
 			}
 
 			timeTillNextSend = MAX_TIME_BETWEEN_NEXT_TICK + 3;
@@ -117,13 +131,13 @@ int main( int argc, const char* argv[] ) {
 	int j;
 	for (j = 0; j < numTests; j++) {
 
-		printf("\ntestMessages: good");
+		printf("\n\n\ntestMessages: good");
 		testMessages(goodMessages, sizeof(goodMessages));
 
-		printf("\ntestMessages: bad");
+		printf("\n\n\ntestMessages: bad");
 		testMessages(badMessages, sizeof(badMessages));
 
-		printf("\ntestMessages: bad2");
+		printf("\n\n\ntestMessages: bad2");
 		testMessages(badMessages2, sizeof(badMessages2));
 
 	}

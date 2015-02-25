@@ -12,6 +12,9 @@
 #	include "bleprofile.h"
 #endif
 
+
+#define IS_MIDI_STATUS(b) ((b & 0x80) != 0)
+
 /***
  * Parses and saves the MIDI, and constructs in midiBuffer the packets (with headers and timecodes)
  * to send to Apple MIDI over BLE.

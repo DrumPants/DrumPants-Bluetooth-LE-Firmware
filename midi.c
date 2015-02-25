@@ -9,8 +9,17 @@
 
 #include "circular_buffer.h"
 
+/***
+ * Set to 0 to disable running status and always send the full packet.
+ */
+#define ENABLE_RUNNING_STATUS 0
 
-#define IS_MIDI_STATUS(b) ((b & 0x80) != 0)
+#ifdef ENABLE_TEST_DEBUG
+#define DEBUG_PRINT(...) printf(__VA_ARGS__)
+#else
+#define DEBUG_PRINT(...)
+#endif
+
 #define MIDI_PACKET_LEN 3
 
 /***
@@ -19,7 +28,6 @@
  * TODO: for now, assumes all midi messages are 3 bytes!
  */
 #define GET_MIDI_PACKET_LEN(statusByte) (3)
-
 
 #define MIDI_TIMESTAMP_LEN 1
 
@@ -99,6 +107,8 @@ UINT8 writeHeader(UINT8* buff, Timestamp timestamp) {
 
 	*buff = byte;
 
+	DEBUG_PRINT("\nwriteHeader: %d : %d", timestamp, byte);
+
 	return 1;
 }
 
@@ -108,6 +118,8 @@ UINT8 writeTimestamp(UINT8* buff, Timestamp timestamp) {
 	byte = (1 << 7) | (timestamp & 0x7f);
 
 	*buff = byte;
+
+	DEBUG_PRINT("\nwriteTimestamp: %d : %d", timestamp, byte);
 
 	return MIDI_TIMESTAMP_LEN;
 }
@@ -158,7 +170,7 @@ BOOL getMidiPacket(BLEPROFILE_DB_PDU* buff, UINT8 maxLen) {
 		// if we're at the beginning of a packet,
 		// we must throw away any remaining tails of MIDI messages until we find the next full one.
 
-//ble_trace1("\ngetMidiPacket: %X to %d", curByte.value, i);
+DEBUG_PRINT("\ngetMidiPacket: %X to %d. (buflen: %d)", curByte.value, i, CBUF_Len(midiBuffer));
 		if (i == 0) {
 			while (!IS_MIDI_STATUS(curByte.value) && CBUF_Len(midiBuffer) > 1) {
 				CBUF_AdvancePopIdx(midiBuffer);
@@ -169,6 +181,8 @@ BOOL getMidiPacket(BLEPROFILE_DB_PDU* buff, UINT8 maxLen) {
 
 			// if there's not a full message left, we have to give up
 			if (CBUF_Len(midiBuffer) < GET_MIDI_PACKET_LEN(curByte.value)) {
+
+DEBUG_PRINT("\ngetMidiPacket: not a full message left, giving up %d", CBUF_Len(midiBuffer));
 				break;
 			}
 
@@ -177,8 +191,12 @@ BOOL getMidiPacket(BLEPROFILE_DB_PDU* buff, UINT8 maxLen) {
 
 		if (IS_MIDI_STATUS(curByte.value)) {
 
+DEBUG_PRINT("\ngetMidiPacket: got status %X", curByte.value);
 			// add timestamp first, unless it's running status
 			if (curByte.value == currentRunningStatus && curByte.timestamp == lastTimestamp) {
+
+				DEBUG_PRINT("\ngetMidiPacket: skipping RUNNING status %X", curByte.value);
+
 				// don't bother writing the running status!
 				// pop it and toss it, then get the next byte,
 				// as long as there IS another MIDI message waiting and it can fit
@@ -188,15 +206,24 @@ BOOL getMidiPacket(BLEPROFILE_DB_PDU* buff, UINT8 maxLen) {
 					curByte = CBUF_Get(midiBuffer, 0);
 				}
 				else {
+
+					DEBUG_PRINT("\ngetMidiPacket: not enough room for running status %X", curByte.value);
 					break;
 				}
 			}
 			else {
+#if ENABLE_RUNNING_STATUS
 				currentRunningStatus = curByte.value;
-
+#endif
 				// if there's no more room in this packet for the full message,
 				// we give up; they'll call it again to get the next full packet.
-				if (i + (GET_MIDI_PACKET_LEN(curByte.value) + MIDI_TIMESTAMP_LEN) >= maxLen) {
+				int packetLen = GET_MIDI_PACKET_LEN(curByte.value);
+				if (i + (packetLen + MIDI_TIMESTAMP_LEN) >= maxLen) {
+					DEBUG_PRINT("\ngetMidiPacket: no more room, giving up %d", curByte.value);
+					break;
+				}
+				else if (CBUF_Len(midiBuffer) < packetLen) {
+					DEBUG_PRINT("\ngetMidiPacket: buffer has no more full messages, giving up with %d bytes left", CBUF_Len(midiBuffer));
 					break;
 				}
 				else {
@@ -214,6 +241,8 @@ BOOL getMidiPacket(BLEPROFILE_DB_PDU* buff, UINT8 maxLen) {
 
 		buff->pdu[i] = curByte.value;
 	}
+
+	DEBUG_PRINT("\ngetMidiPacket: done processing. total len: %d", i);
 	buff->len = i;
 
 	onSendMidiPacket();

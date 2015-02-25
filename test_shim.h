@@ -4,6 +4,9 @@
 
 #include <stdio.h>
 
+#define ENABLE_TEST_DEBUG
+
+
 typedef unsigned char UINT8;
 typedef unsigned char BOOL;
 
@@ -15,6 +18,7 @@ typedef struct
   UINT8 header;
   UINT8 pdu[21-1];
 } BLEPROFILE_DB_PDU;
+
 
 #define ble_trace1(...) printf(__VA_ARGS__)
 
