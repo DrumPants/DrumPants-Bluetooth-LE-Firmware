@@ -71,6 +71,10 @@
 #include "midi.h"
 
 
+#include "midi_over_ble.h"
+
+
+
 /******************************************************
  *                      Constants
  ******************************************************/
@@ -314,12 +318,13 @@ Shall require encryption. Writes must not expect a response.
         // (see handle 2b below).  Note that UUID of the vendor specific characteristic is
         // 16 bytes, unlike standard Bluetooth UUIDs which are 2 bytes.  _UUID128 version
         // of the macro should be used.
-        CHARACTERISTIC_UUID128 ((HANDLE_MIDI_TX_VALUE_NOTIFY - 1), HANDLE_MIDI_TX_VALUE_NOTIFY, UUID_MIDI_CHARACTERISTIC,
+        CHARACTERISTIC_UUID128_WRITABLE ((HANDLE_MIDI_TX_VALUE_NOTIFY - 1), HANDLE_MIDI_TX_VALUE_NOTIFY, UUID_MIDI_CHARACTERISTIC,
                                LEGATTDB_CHAR_PROP_READ | LEGATTDB_CHAR_PROP_NOTIFY | LEGATTDB_CHAR_PROP_WRITE,
                                LEGATTDB_PERM_READABLE | LEGATTDB_PERM_WRITABLE, BLE_MAX_PACKET_LENGTH),
             0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,
             // for 20 chars long (Broadcom maximum):
             0x00,0x00,0x00,0x00,
+
 
     	// Handle 0x2b: Characteristic Client Configuration Descriptor.
         // This is standard GATT characteristic descriptor.  2 byte value 0 means that

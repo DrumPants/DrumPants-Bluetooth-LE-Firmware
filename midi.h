@@ -12,7 +12,6 @@
 #	include "bleprofile.h"
 #endif
 
-#include "midi_over_ble.h"
 
 #define IS_MIDI_STATUS(b) ((b & 0x80) != 0)
 
@@ -31,10 +30,10 @@ void incrementMidiTimestamp();
 
 /***
  * Sends the next packet in the current buffer.
+ * Returns > 1 if there are additional full packets still in the buffer,
+ * 0 on success, or -1 if no packets are available for copying.
  *
- * Returns true if there are additional full packets still in the buffer.
- *
- * buff : the profile PDU to store the next packet into. Sets the len field to the number of bytes written.
+ * buff : the profile PDU to store the next packet into.
  * maxLen : the maximum amount of bytes to fill (this should be MAX_BLE_MIDI_PACKET_LEN)
  *
  */

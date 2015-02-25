@@ -2,7 +2,7 @@
 
 #include <stdio.h>
 
-#define NUM_TESTS (1)
+#define NUM_TESTS (1000)
 #define MAX_TIME_BETWEEN_NEXT_TICK (5)
 
 UINT8 goodMessages[] = {
@@ -140,4 +140,9 @@ int main( int argc, const char* argv[] ) {
 
 	}
 
+
+	// test timestamps
+	for (j = 0; j < numTests; j++) {
+
+	}
 }
