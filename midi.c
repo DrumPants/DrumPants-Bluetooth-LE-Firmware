@@ -176,7 +176,7 @@ DEBUG_PRINT("\ngetMidiPacket: %X to %d. (buflen: %d)", curByte.value, i, CBUF_Le
 				CBUF_AdvancePopIdx(midiBuffer);
 				curByte = CBUF_Get(midiBuffer, 0);
 
-				ble_trace1("\nInvalid midi packet - starting in the middle of a MIDI message at start of BLE packet: %X", curByte.value);
+				ble_trace1("\nERROR: Invalid midi packet - starting in the middle of a MIDI message at start of BLE packet: %X", curByte.value);
 			}
 
 			// if there's not a full message left, we have to give up

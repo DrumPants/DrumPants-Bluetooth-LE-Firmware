@@ -106,7 +106,7 @@ void testMessages(UINT8 midi[], int len) {
 			printf("\nsaveMIDIDataToBuffer failed");
 		}
 
-		if (--timeTillNextSend <= 0) {
+		if (--timeTillNextSend <= 0 || i == len - 1) {
 			BLEPROFILE_DB_PDU buff;
 
 			while (1) {
