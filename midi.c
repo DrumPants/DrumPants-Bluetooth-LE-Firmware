@@ -21,7 +21,7 @@
 #define GET_MIDI_PACKET_LEN(statusByte) (3)
 
 
-#define TIMESTAMP_LEN 1
+#define MIDI_TIMESTAMP_LEN 1
 
 #define MAX_TIMESTAMP_VALUE 8192
 
@@ -109,14 +109,14 @@ UINT8 writeTimestamp(UINT8* buff, Timestamp timestamp) {
 
 	*buff = byte;
 
-	return TIMESTAMP_LEN;
+	return MIDI_TIMESTAMP_LEN;
 }
 
 UINT8 saveMIDIDataToBuffer(char midiByte) {
 
 	// TODO: better overflow recovery - skip all unitl next status or something???
 	if (!CBUF_IsFull(midiBuffer)) {
-		TimestampedByte* entry = CBUF_GetPushEntryPtr(midiBuffer);
+		volatile TimestampedByte* entry = CBUF_GetPushEntryPtr(midiBuffer);
 		entry->value = midiByte;
 		entry->timestamp = midiTimestamp;
 		CBUF_AdvancePushIdx(midiBuffer);
@@ -157,12 +157,14 @@ BOOL getMidiPacket(BLEPROFILE_DB_PDU* buff, UINT8 maxLen) {
 
 		// if we're at the beginning of a packet,
 		// we must throw away any remaining tails of MIDI messages until we find the next full one.
+
+//ble_trace1("\ngetMidiPacket: %X to %d", curByte.value, i);
 		if (i == 0) {
 			while (!IS_MIDI_STATUS(curByte.value) && CBUF_Len(midiBuffer) > 1) {
 				CBUF_AdvancePopIdx(midiBuffer);
 				curByte = CBUF_Get(midiBuffer, 0);
 
-				ble_trace1("Invalid midi packet - starting in the middle of a MIDI message at start of BLE packet: %X", curByte.value);
+				ble_trace1("\nInvalid midi packet - starting in the middle of a MIDI message at start of BLE packet: %X", curByte.value);
 			}
 
 			// if there's not a full message left, we have to give up
@@ -170,7 +172,7 @@ BOOL getMidiPacket(BLEPROFILE_DB_PDU* buff, UINT8 maxLen) {
 				break;
 			}
 
-			i += writeHeader(&buff.pdu, curByte.timestamp);
+			i += writeHeader(&(buff->pdu[i]), curByte.timestamp);
 		}
 
 		if (IS_MIDI_STATUS(curByte.value)) {
@@ -194,12 +196,12 @@ BOOL getMidiPacket(BLEPROFILE_DB_PDU* buff, UINT8 maxLen) {
 
 				// if there's no more room in this packet for the full message,
 				// we give up; they'll call it again to get the next full packet.
-				if (i + (GET_MIDI_PACKET_LEN(curByte.value) + TIMESTAMP_LEN) >= maxLen) {
+				if (i + (GET_MIDI_PACKET_LEN(curByte.value) + MIDI_TIMESTAMP_LEN) >= maxLen) {
 					break;
 				}
 				else {
 					// write timestamp for new MIDI message
-					i += writeTimestamp(&(buff.pdu[i]), curByte.timestamp);
+					i += writeTimestamp(&(buff->pdu[i]), curByte.timestamp);
 				}
 			}
 

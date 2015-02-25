@@ -8,7 +8,9 @@
 #ifndef MIDI_H_
 #define MIDI_H_
 
-#include "bleprofile.h"
+#ifndef TEST_SHIM
+#	include "bleprofile.h"
+#endif
 
 /***
  * Parses and saves the MIDI, and constructs in midiBuffer the packets (with headers and timecodes)
@@ -33,5 +35,6 @@ void incrementMidiTimestamp();
  *
  */
 BOOL getMidiPacket(BLEPROFILE_DB_PDU* buff, UINT8 maxLen);
+
 
 #endif /* MIDI_H_ */
