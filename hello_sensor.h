@@ -61,7 +61,12 @@
 // 20 is the broadcom maximum (max 23-1, plus 2 for the something or other): http://community.broadcom.com/message/7243#7243 and http://community.broadcom.com/message/5175#5175
 #define BLE_MAX_PACKET_LENGTH (MIN(20, LEATT_ATT_MTU-1))
 
-
+/***
+ * Maximum length of a MIDI over BLE packet.
+ *
+ * (defined in Apple doc, section 2.2): "The maximum MIDI payload for a Bluetooth Low Energy packet is the negotiated MTU minus 3 bytes"
+ */
+#define MAX_BLE_MIDI_PACKET_LEN (BLE_MAX_PACKET_LENGTH - 3)
 
 
 

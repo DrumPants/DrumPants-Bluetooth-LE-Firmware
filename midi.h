@@ -8,41 +8,30 @@
 #ifndef MIDI_H_
 #define MIDI_H_
 
-#include "circular_buffer.h"
-
-
-// make a big buffer just in case. this shouldn't really actually be longer than 16 bytes at a longshot.
-#define midiBuffer_SIZE 128
-
-/***
- * This stores the MIDI bytes WITH timestamps and headers according to the Apple BLE spec.
- * https://www.google.com/url?sa=t&rct=j&q=&esrc=s&source=web&cd=2&cad=rja&uact=8&ved=0CEcQFjAB&url=https%3A%2F%2Fdeveloper.apple.com%2Fbluetooth%2FApple-Bluetooth-Low-Energy-MIDI-Specification.pdf&ei=YN7qVLG2ApfVoAT46ILYDg&usg=AFQjCNEKQd0Bagh2qTNFyIpSgYa1okrPdQ&bvm=bv.86475890,d.cGU
- */
-volatile struct
-{
-   UINT8     m_getIdx;
-   UINT8     m_putIdx;
-   UINT8     m_entry[ midiBuffer_SIZE ];
-
-} midiBuffer;
-
+#include "bleprofile.h"
 
 /***
  * Parses and saves the MIDI, and constructs in midiBuffer the packets (with headers and timecodes)
  * to send to Apple MIDI over BLE.
+ *
+ * Returns 0 on error.
  */
-UINT8 saveMIDIDataToBuffer(int timestamp, char midiByte);
-
-void incrementMidiTimestamp();
-
-void onSendMidiPacket();
+UINT8 saveMIDIDataToBuffer(char midiByte);
 
 /***
- * Copies the next full packet in the current buffer.
+ * Call every 1ms.
+ */
+void incrementMidiTimestamp();
+
+/***
+ * Sends the next packet in the current buffer.
+ *
  * Returns true if there are additional full packets still in the buffer.
  *
+ * buff : the profile PDU to store the next packet into. Sets the len field to the number of bytes written.
+ * maxLen : the maximum amount of bytes to fill (this should be MAX_BLE_MIDI_PACKET_LEN)
+ *
  */
-BOOL getMidiPacket(BLEPROFILE_DB_PDU* buff);
-
+BOOL getMidiPacket(BLEPROFILE_DB_PDU* buff, UINT8 maxLen);
 
 #endif /* MIDI_H_ */
