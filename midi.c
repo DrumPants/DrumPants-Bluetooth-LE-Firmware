@@ -12,7 +12,7 @@
 /***
  * Set to 0 to disable running status and always send the full packet.
  */
-#define ENABLE_RUNNING_STATUS 0
+#define ENABLE_RUNNING_STATUS 1
 
 #ifdef ENABLE_TEST_DEBUG
 #define DEBUG_PRINT(...) printf(__VA_ARGS__)
@@ -191,6 +191,11 @@ DEBUG_PRINT("\ngetMidiPacket: not a full message left, giving up %d", CBUF_Len(m
 
 		if (IS_MIDI_STATUS(curByte.value)) {
 
+			if (CBUF_Len(midiBuffer) < GET_MIDI_PACKET_LEN(curByte.value)) {
+				DEBUG_PRINT("\ngetMidiPacket: buffer has no more full messages, giving up with %d bytes left", CBUF_Len(midiBuffer));
+				break;
+			}
+
 DEBUG_PRINT("\ngetMidiPacket: got status %X", curByte.value);
 			// add timestamp first, unless it's running status
 			if (curByte.value == currentRunningStatus && curByte.timestamp == lastTimestamp) {
@@ -200,8 +205,7 @@ DEBUG_PRINT("\ngetMidiPacket: got status %X", curByte.value);
 				// don't bother writing the running status!
 				// pop it and toss it, then get the next byte,
 				// as long as there IS another MIDI message waiting and it can fit
-				if (CBUF_Len(midiBuffer) > 1 &&
-						(i + (GET_MIDI_PACKET_LEN(curByte.value) - 1) < maxLen)) {
+				if (i + (GET_MIDI_PACKET_LEN(curByte.value) - 1) < maxLen) {
 					CBUF_AdvancePopIdx(midiBuffer);
 					curByte = CBUF_Get(midiBuffer, 0);
 				}
@@ -220,10 +224,6 @@ DEBUG_PRINT("\ngetMidiPacket: got status %X", curByte.value);
 				int packetLen = GET_MIDI_PACKET_LEN(curByte.value);
 				if (i + (packetLen + MIDI_TIMESTAMP_LEN) >= maxLen) {
 					DEBUG_PRINT("\ngetMidiPacket: no more room, giving up %d", curByte.value);
-					break;
-				}
-				else if (CBUF_Len(midiBuffer) < packetLen) {
-					DEBUG_PRINT("\ngetMidiPacket: buffer has no more full messages, giving up with %d bytes left", CBUF_Len(midiBuffer));
 					break;
 				}
 				else {
