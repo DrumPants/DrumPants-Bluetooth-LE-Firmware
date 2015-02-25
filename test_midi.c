@@ -101,7 +101,7 @@ void testMessages(UINT8 midi[], int len) {
 			timeTillNextTick = MAX_TIME_BETWEEN_NEXT_TICK;
 		}
 
-		printf("\nReading in new MIDI data");
+		//printf("\nReading in new MIDI data");
 		if (!saveMIDIDataToBuffer(midi[i])) {
 			printf("\nsaveMIDIDataToBuffer failed");
 		}
