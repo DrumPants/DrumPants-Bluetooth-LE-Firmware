@@ -150,13 +150,14 @@ void onSendMidiPacket() {
 
 /***
  * Sends the next packet in the current buffer.
- * Returns true if there are additional full packets still in the buffer.
+ * Returns > 1 if there are additional full packets still in the buffer,
+ * 0 on success, or -1 if no packets are available for copying.
  *
  * buff : the profile PDU to store the next packet into.
  * maxLen : the maximum amount of bytes to fill (this should be MAX_BLE_MIDI_PACKET_LEN)
  *
  */
-BOOL getMidiPacket(BLEPROFILE_DB_PDU* buff, UINT8 maxLen) {
+int getMidiPacket(BLEPROFILE_DB_PDU* buff, UINT8 maxLen) {
 
 	UINT8 len = maxLen;//(CBUF_Len(midiBuffer) - curMidiEventLen);
 
@@ -247,8 +248,13 @@ DEBUG_PRINT("\ngetMidiPacket: got status %X", curByte.value);
 
 	onSendMidiPacket();
 
-	UINT8 remaining = CBUF_Len(midiBuffer);
-	return ((remaining > 0) && remaining >= GET_MIDI_PACKET_LEN( (CBUF_Get(midiBuffer, 0)) ));
+	if (i > 0) {
+		UINT8 remaining = CBUF_Len(midiBuffer);
+		return ((remaining > 0) && remaining >= GET_MIDI_PACKET_LEN( (CBUF_Get(midiBuffer, 0)) ));
+	}
+	else {
+		return -1;
+	}
 }
 
 

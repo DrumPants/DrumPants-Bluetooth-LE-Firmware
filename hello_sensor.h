@@ -55,6 +55,12 @@
 #define HANDLE_HELLO_SENSOR_CLIENT_CONFIGURATION_DESCRIPTOR 0x2b
 #define HANDLE_HELLO_SENSOR_CONFIGURATION                   0x2d
 
+/**
+ * Always set to the last handle + 1: the next available slot.
+ * This is so so midi_over_ble.h can start there.
+ */
+#define HANDLE_HELLO_SENSOR_NEXT_AVAILABLE_ADDRESS 0x0064
+
 // the maximum length of a characteristic notification packet to send over BLE connection.
 // maximum supported is length of BLEPROFILE_DB_PDU.pdu: (LEATT_ATT_MTU-1)
 // NOTE: if you change this, you must also add more 0x00s to the "CHARACTERISTIC_UUID128 (0x0029, HANDLE_HELLO_SENSOR_VALUE_NOTIFY," descriptor default value.

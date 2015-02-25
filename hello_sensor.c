@@ -93,6 +93,10 @@
 #define ENABLE_TIMECODE_HEADER 0
 
 
+// if 1, Apple MIDI over BLE will be enabled.
+#define ENABLE_MIDI 1
+
+
 #define NVRAM_ID_HOST_LIST					0x10	// ID of the memory block used for NVRAM access
 
 
@@ -279,6 +283,55 @@ const UINT8 hello_sensor_gatt_database[]=
     CHARACTERISTIC_UUID16 (0x0062, 0x0063, UUID_CHARACTERISTIC_BATTERY_LEVEL,
                            LEGATTDB_CHAR_PROP_READ, LEGATTDB_PERM_READABLE, 1),
         0x64,
+
+
+
+#if ENABLE_MIDI
+    /***
+     * MIDI OVER BLE SERVICE
+     * according to Apple spec
+     */
+
+/***
+ *Table 2-2  Apple Bluetooth Low Energy MIDI Service Characteristics
+ Name
+Type
+Security
+Properties
+Comment
+MIDI I/O
+blob
+Read, Write, Notify
+Pairing required
+Shall require encryption. Writes must not expect a response.
+ */
+        // Handle 0x28: MIDI Service.
+        PRIMARY_SERVICE_UUID128 (HANDLE_MIDI_SERVICE_UUID, UUID_MIDI_SERVICE),
+
+        // Handle 0x29: characteristic MIDI Notification, handle 0x2a characteristic value
+        // we support both notification and indication.  Peer need to allow notifications
+        // or indications by writing in the Characteristic Client Configuration Descriptor
+        // (see handle 2b below).  Note that UUID of the vendor specific characteristic is
+        // 16 bytes, unlike standard Bluetooth UUIDs which are 2 bytes.  _UUID128 version
+        // of the macro should be used.
+        CHARACTERISTIC_UUID128 ((HANDLE_MIDI_TX_VALUE_NOTIFY - 1), HANDLE_MIDI_TX_VALUE_NOTIFY, UUID_MIDI_CHARACTERISTIC,
+                               LEGATTDB_CHAR_PROP_READ | LEGATTDB_CHAR_PROP_NOTIFY | LEGATTDB_CHAR_PROP_WRITE,
+                               LEGATTDB_PERM_READABLE | LEGATTDB_PERM_WRITABLE, BLE_MAX_PACKET_LENGTH),
+            0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,
+            // for 20 chars long (Broadcom maximum):
+            0x00,0x00,0x00,0x00,
+
+    	// Handle 0x2b: Characteristic Client Configuration Descriptor.
+        // This is standard GATT characteristic descriptor.  2 byte value 0 means that
+        // message to the client is disabled.  Peer can write value 1 or 2 to enable
+        // notifications or indications respectively.  Not _WRITABLE in the macro.  This
+        // means that attribute can be written by the peer.
+        CHAR_DESCRIPTOR_UUID16_WRITABLE (HANDLE_MIDI_CLIENT_CONFIGURATION_DESCRIPTOR,
+                                         UUID_DESCRIPTOR_CLIENT_CHARACTERISTIC_CONFIGURATION,
+                                         LEGATTDB_PERM_READABLE | LEGATTDB_PERM_WRITE_REQ, 2),
+            0x00,0x00,
+#endif
+
 };
 
 const BLE_PROFILE_CFG hello_sensor_cfg =
@@ -386,6 +439,11 @@ int countBytesRead = 0;
 
 // NVRAM save area
 HOSTINFO hello_sensor_hostinfo;
+
+// for Apple MIDI.
+// TODO: specs say it should not respond unless paired!
+// hopefully this is automatic.
+BOOL isPaired = TRUE;
 
 /******************************************************
  *               Function Definitions
@@ -522,14 +580,42 @@ void processPuartInput() {
 	}
 }
 
+
+
+#if ENABLE_MIDI
+/**
+ * Sends all available MIDI packets as notifications immediately.
+ */
+void sendMIDIOverAir(BLEPROFILE_DB_PDU* db_pdu) {
+
+	int status;
+	// assignment!
+	while ((status = getMidiPacket(db_pdu, MAX_BLE_MIDI_PACKET_LEN)) >= 0) {
+
+		ble_trace1("sending MIDI over air: %d bytes\n", db_pdu->len);
+
+		int error = bleprofile_WriteHandle(HANDLE_MIDI_TX_VALUE_NOTIFY, db_pdu);
+		if (error) {
+			ble_trace2("ERROR writing %d byte MIDI notification. Code: %d\n", db_pdu->len, error);
+		}
+		else if (isPaired) {
+			bleprofile_sendNotification(HANDLE_MIDI_TX_VALUE_NOTIFY, (UINT8 *)db_pdu->pdu, db_pdu->len);
+
+		}
+	}
+}
+#endif
+
+
 void send_uart_data_over_air() {
+	// store the current buffer message in the characteristic
+	BLEPROFILE_DB_PDU db_pdu;
+
 	int len = CBUF_Len(txBuffer);
 	if (len > 0) { // always send whatever we have because this gets called only once per connection interval
 
 		ble_trace1("Sending %d bytes over air\n", len);
 
-		// store the current buffer message in the characteristic
-		BLEPROFILE_DB_PDU db_pdu;
 
 // TODO: is this neccessary? we're just overwriting it anyway.
 		bleprofile_ReadHandle(HANDLE_HELLO_SENSOR_VALUE_NOTIFY, &db_pdu);
@@ -558,23 +644,16 @@ void send_uart_data_over_air() {
 			ble_trace2("ERROR writing %d byte notification. Code: %d\n", db_pdu.len, error);
 		}
 
-		// now send the midi as well.
-// TODO: should send instead of others? so it doesn't clog the pipes?
-		db_pdu.len = getMidiPacket(&db_pdu);
-		int error = bleprofile_WriteHandle(HANDLE_MIDI_BLE_TX_VALUE_NOTIFY, &db_pdu);
-		if (error) {
-			ble_trace2("ERROR writing %d byte notification. Code: %d\n", db_pdu.len, error);
-		}
-
-
 		// send right away! this probably needs to be on a timer instead.
 		hello_sensor_start_send_message_sized(i);
 	 }
+
+#if ENABLE_MIDI
+	// now send the midi as well.
+// TODO: should send instead of others? so it doesn't clog the pipes?
+	sendMIDIOverAir(&db_pdu);
+#endif
 }
-
-
-
-
 
 
 // Create hello sensor
@@ -964,7 +1043,7 @@ void hello_sensor_smp_bond_result(LESMP_PARING_RESULT  result)
 
 
     // do some noise
-    bleprofile_BUZBeep(bleprofile_p_cfg->buz_on_ms);
+    //bleprofile_BUZBeep(bleprofile_p_cfg->buz_on_ms);
 
     if (result == LESMP_PAIRING_RESULT_BONDED)
     {
@@ -1001,7 +1080,7 @@ void hello_sensor_encryption_changed(HCI_EVT_HDR *evt)
                 (bda[3] << 8) + bda[2],
                 (bda[1] << 8) + bda[0]);
 
-    bleprofile_BUZBeep(bleprofile_p_cfg->buz_on_ms);
+    //bleprofile_BUZBeep(bleprofile_p_cfg->buz_on_ms);
 
     // Connection has been encrypted meaning that we have correct/paired device
     // restore values in the database
@@ -1048,9 +1127,11 @@ void hello_sensor_encryption_changed(HCI_EVT_HDR *evt)
 	}
 
     // We are done with initial settings, and need to stay connected.  It is a good
-	// time to slow down the pace of master polls to save power.  Following request asks
+	// timdb_pduer polls to save power.  Following request asks
 	// host to setup polling every 100-500 msec, with link supervision timeout 7 seconds.
     //bleprofile_SendConnParamUpdateReq(80, 400, 0, 700);
+
+	isPaired = TRUE;
 }
 
 UINT8 midiTestMsg[] = {0x90, 0x02, 0x0E};
@@ -1149,6 +1230,13 @@ int hello_sensor_write_handler(LEGATTDB_ENTRY_HDR *p)
     	// now send the request to the master device to change params.
     	sendConnectionIntervalRequest();
     }
+#if ENABLE_MIDI
+    else if ( (handle == HANDLE_MIDI_TX_VALUE_NOTIFY)) {
+    	// BLE over MIDI device is trying to connect.
+    	// maybe this should enable MIDI notifications?
+    	isPaired = TRUE;
+    }
+#endif
     else
     {
         ble_trace2("hello_sensor_write_handler: bad write len:%d handle:0x%x\n", len, handle);

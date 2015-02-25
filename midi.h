@@ -12,6 +12,7 @@
 #	include "bleprofile.h"
 #endif
 
+#include "midi_over_ble.h"
 
 #define IS_MIDI_STATUS(b) ((b & 0x80) != 0)
 
@@ -37,7 +38,7 @@ void incrementMidiTimestamp();
  * maxLen : the maximum amount of bytes to fill (this should be MAX_BLE_MIDI_PACKET_LEN)
  *
  */
-BOOL getMidiPacket(BLEPROFILE_DB_PDU* buff, UINT8 maxLen);
+int getMidiPacket(BLEPROFILE_DB_PDU* buff, UINT8 maxLen);
 
 
 #endif /* MIDI_H_ */

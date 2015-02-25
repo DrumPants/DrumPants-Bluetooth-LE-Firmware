@@ -92,7 +92,7 @@ void testMessages(UINT8 midi[], int len) {
 	printf("\nAdding %d bytes", len);
 
 	int i;
-	for (i = 0; i < len; i++) {
+	for (i = 0; i < len + 10; i++) { // also try to send empty midi packets.
 
 		if (--timeTillNextTick <= 0) {
 			incrementMidiTimestamp();
@@ -102,20 +102,18 @@ void testMessages(UINT8 midi[], int len) {
 		}
 
 		//printf("\nReading in new MIDI data");
-		if (!saveMIDIDataToBuffer(midi[i])) {
+		if (i < len && !saveMIDIDataToBuffer(midi[i])) {
 			printf("\nsaveMIDIDataToBuffer failed");
 		}
 
 		if (--timeTillNextSend <= 0 || i == len - 1) {
 			BLEPROFILE_DB_PDU buff;
 
-			while (1) {
-				BOOL isMore = getMidiPacket(&buff, 21);
+			printf("\nstarting getMidiPacket");
+			while (getMidiPacket(&buff, 21) >= 0) {
 				printf("\n\nReturned MidiPacket: ");
 				printMidiPacket(&buff);
 				printf("\n\n");
-
-				if (!isMore) break;
 			}
 
 			timeTillNextSend = MAX_TIME_BETWEEN_NEXT_TICK + 3;
