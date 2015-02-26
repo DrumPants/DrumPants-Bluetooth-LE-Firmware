@@ -319,7 +319,7 @@ Shall require encryption. Writes must not expect a response.
         // 16 bytes, unlike standard Bluetooth UUIDs which are 2 bytes.  _UUID128 version
         // of the macro should be used.
         CHARACTERISTIC_UUID128_WRITABLE ((HANDLE_MIDI_TX_VALUE_NOTIFY - 1), HANDLE_MIDI_TX_VALUE_NOTIFY, UUID_MIDI_CHARACTERISTIC,
-                               LEGATTDB_CHAR_PROP_READ | LEGATTDB_CHAR_PROP_NOTIFY | LEGATTDB_CHAR_PROP_WRITE,
+                               LEGATTDB_CHAR_PROP_READ | LEGATTDB_CHAR_PROP_NOTIFY | LEGATTDB_CHAR_PROP_WRITE | LEGATTDB_CHAR_PROP_AUTHD_WRITES | LEGATTDB_CHAR_PROP_WRITE_NO_RESPONSE,
                                LEGATTDB_PERM_READABLE | LEGATTDB_PERM_WRITABLE, BLE_MAX_PACKET_LENGTH),
             0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,
             // for 20 chars long (Broadcom maximum):
@@ -592,6 +592,11 @@ void processPuartInput() {
  * Sends all available MIDI packets as notifications immediately.
  */
 void sendMIDIOverAir(BLEPROFILE_DB_PDU* db_pdu) {
+
+	// don't send if not connected.
+	if (hello_sensor_connection_handle == 0) {
+		return;
+	}
 
 	int status;
 	// assignment!
@@ -1087,6 +1092,8 @@ void hello_sensor_encryption_changed(HCI_EVT_HDR *evt)
 
     //bleprofile_BUZBeep(bleprofile_p_cfg->buz_on_ms);
 
+	isPaired = TRUE;
+
     // Connection has been encrypted meaning that we have correct/paired device
     // restore values in the database
     bleprofile_ReadNVRAM(NVRAM_ID_HOST_LIST, sizeof(hello_sensor_hostinfo), (UINT8 *)&hello_sensor_hostinfo);
@@ -1136,7 +1143,6 @@ void hello_sensor_encryption_changed(HCI_EVT_HDR *evt)
 	// host to setup polling every 100-500 msec, with link supervision timeout 7 seconds.
     //bleprofile_SendConnParamUpdateReq(80, 400, 0, 700);
 
-	isPaired = TRUE;
 }
 
 UINT8 midiTestMsg[] = {0x90, 0x02, 0x0E};
