@@ -309,10 +309,10 @@ Read, Write, Notify
 Pairing required
 Shall require encryption. Writes must not expect a response.
  */
-        // Handle 0x28: MIDI Service.
+        // Handle : MIDI Service.
         PRIMARY_SERVICE_UUID128 (HANDLE_MIDI_SERVICE_UUID, UUID_MIDI_SERVICE),
 
-        // Handle 0x29: characteristic MIDI Notification, handle 0x2a characteristic value
+        // Handle : characteristic MIDI Notification, handle 0x2a characteristic value
         // we support both notification and indication.  Peer need to allow notifications
         // or indications by writing in the Characteristic Client Configuration Descriptor
         // (see handle 2b below).  Note that UUID of the vendor specific characteristic is
@@ -326,7 +326,7 @@ Shall require encryption. Writes must not expect a response.
             0x00,0x00,0x00,0x00,
 
 
-    	// Handle 0x2b: Characteristic Client Configuration Descriptor.
+    	// Handle : Characteristic Client Configuration Descriptor.
         // This is standard GATT characteristic descriptor.  2 byte value 0 means that
         // message to the client is disabled.  Peer can write value 1 or 2 to enable
         // notifications or indications respectively.  Not _WRITABLE in the macro.  This

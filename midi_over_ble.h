@@ -64,7 +64,7 @@ console.log(broadcomUUIDDefine);
 // following definitions are shared between client and sensor
 // to avoid unnecessary GATT Discovery
 //
-#define HANDLE_MIDI_SERVICE_UUID                    (HANDLE_HELLO_SENSOR_NEXT_AVAILABLE_ADDRESS)
+#define HANDLE_MIDI_SERVICE_UUID                    0xff00
 #define HANDLE_MIDI_TX_VALUE_NOTIFY      			(HANDLE_MIDI_SERVICE_UUID + 2)
 #define HANDLE_MIDI_CLIENT_CONFIGURATION_DESCRIPTOR (HANDLE_MIDI_TX_VALUE_NOTIFY + 1)
 #endif
