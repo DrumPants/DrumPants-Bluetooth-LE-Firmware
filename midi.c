@@ -50,8 +50,7 @@ typedef struct {
 
 
 /***
- * This stores the MIDI bytes WITH timestamps and headers according to the Apple BLE spec.
- * https://www.google.com/url?sa=t&rct=j&q=&esrc=s&source=web&cd=2&cad=rja&uact=8&ved=0CEcQFjAB&url=https%3A%2F%2Fdeveloper.apple.com%2Fbluetooth%2FApple-Bluetooth-Low-Energy-MIDI-Specification.pdf&ei=YN7qVLG2ApfVoAT46ILYDg&usg=AFQjCNEKQd0Bagh2qTNFyIpSgYa1okrPdQ&bvm=bv.86475890,d.cGU
+ * This stores the MIDI bytes WITH timestamps.
  */
 volatile struct
 {

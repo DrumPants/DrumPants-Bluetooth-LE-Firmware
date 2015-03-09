@@ -16,8 +16,7 @@
 #define IS_MIDI_STATUS(b) ((b & 0x80) != 0)
 
 /***
- * Parses and saves the MIDI, and constructs in midiBuffer the packets (with headers and timecodes)
- * to send to Apple MIDI over BLE.
+ * Saves the UART data for later retreival by getMidiPacket().
  *
  * Returns 0 on error.
  */
@@ -30,7 +29,7 @@ void incrementMidiTimestamp();
 
 /***
  * Sends the next packet in the current buffer.
- * Returns > 1 if there are additional full packets still in the buffer,
+ * Returns >= 1 if there are additional full packets still in the buffer,
  * 0 on success, or -1 if no packets are available for copying.
  *
  * buff : the profile PDU to store the next packet into.
