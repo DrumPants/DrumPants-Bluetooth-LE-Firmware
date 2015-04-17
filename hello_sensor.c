@@ -358,8 +358,8 @@ User Description:
         // 16 bytes, unlike standard Bluetooth UUIDs which are 2 bytes.  _UUID128 version
         // of the macro should be used.
         CHARACTERISTIC_UUID128_WRITABLE ((HANDLE_MIDI_TX_VALUE_NOTIFY - 1), HANDLE_MIDI_TX_VALUE_NOTIFY, UUID_MIDI_CHARACTERISTIC,
-                               LEGATTDB_CHAR_PROP_READ | LEGATTDB_CHAR_PROP_NOTIFY | LEGATTDB_CHAR_PROP_WRITE | LEGATTDB_CHAR_PROP_AUTHD_WRITES | LEGATTDB_CHAR_PROP_WRITE_NO_RESPONSE,
-                               LEGATTDB_PERM_AUTH_READABLE | LEGATTDB_PERM_AUTH_WRITABLE, BLE_MAX_PACKET_LENGTH),
+                               LEGATTDB_CHAR_PROP_READ | LEGATTDB_CHAR_PROP_NOTIFY | LEGATTDB_CHAR_PROP_WRITE_NO_RESPONSE, //LEGATTDB_CHAR_PROP_WRITE, // | LEGATTDB_CHAR_PROP_AUTHD_WRITES | LEGATTDB_CHAR_PROP_WRITE_NO_RESPONSE,
+                               LEGATTDB_PERM_READABLE | LEGATTDB_PERM_WRITABLE | LEGATTDB_PERM_VARIABLE_LENGTH, BLE_MAX_PACKET_LENGTH),
             0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,
             // for 20 chars long (Broadcom maximum):
             0x00,0x00,0x00,0x00,
@@ -380,7 +380,7 @@ User Description:
         CHAR_DESCRIPTOR_UUID16_WRITABLE (HANDLE_MIDI_CLIENT_CONFIGURATION_DESCRIPTOR + 1,
         								UUID_DESCRIPTOR_CHARACTERISTIC_USER_DESCRIPTION,
         								LEGATTDB_PERM_READABLE | LEGATTDB_PERM_AUTH_WRITABLE, 4),
-			'D','O','0','0',
+        	'A','O','0','1',
 #endif
 
 };
@@ -922,6 +922,13 @@ void hello_sensor_connection_up(void)
     // note these timing parameters are in SLOTS (.625ms), not FRAMES (1.25ms). THEY MUST BE EVEN!
     // fire 1 frames BEFORE notification goes out (hence the negative)
     blecm_connectionEventNotifiationEnable(app_conn_event_callback, 0, -2, 8, emconinfo_getConnHandle());
+
+#if ENABLE_MIDI
+    // as per apple MIDI spec, the first time they read the MIDI characteristic, it should send an empty packet.
+    BLEPROFILE_DB_PDU db_pdu;
+    db_pdu.len = 0;
+	bleprofile_WriteHandle(HANDLE_MIDI_TX_VALUE_NOTIFY, &db_pdu);
+#endif
 
 
     // as we require security for every connection, we will not send any indications until
