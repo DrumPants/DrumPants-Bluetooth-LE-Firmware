@@ -309,6 +309,45 @@ Read, Write, Notify
 Pairing required
 Shall require encryption. Writes must not expect a response.
  */
+
+
+
+
+
+/*
+ * NOTES FROM Justin Moon jmoon@lividinstruments.com
+ *
+Profile Attributes
+------------------------------
+// Attribute[0]: MIDI BLE: Service
+// Attribute[1]: Characteristic Declaration
+// Attribute[2]: Characteristic Value (where to 'write' midi data) (Accessory->Apple)
+// Attribute[3]: Characteristic Configuration (so Apple device can disable/enable notifications (Apple->Accessory))
+// Attribute[4]: Characteristic User Description (arbitrary string, not sure if this one is necessary)
+
+
+Profile Attribute Permissions
+-----------------------------
+Service:
+- Every linked device can 'read' and 'write' to the 'midi service'
+Characteristic:
+- Every linked device should be able to 'read' the  'ble midi characteristic'. (no write)
+Characteristic Value:
+- Only 'Authenticated' devices should be able to 'read'  the 'value of the ble midi characteristic'.
+---- When someone does read this, you send back an empty packet.
+- Only 'Encrypted' devices should be able to 'write' to the 'value of the ble midi characteristic'
+----- Note: it still works (currently) if you only require 'Authentication' for writes (though it is not to spec).
+- Configuration: All can Read and Write
+Characteristic Config:
+- All can read and write
+User Description:
+- All can read
+- only 'Authenticated' writes
+ */
+
+
+
+
         // Handle : MIDI Service.
         PRIMARY_SERVICE_UUID128 (HANDLE_MIDI_SERVICE_UUID, UUID_MIDI_SERVICE),
 
