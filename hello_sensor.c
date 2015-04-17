@@ -372,8 +372,15 @@ User Description:
         // means that attribute can be written by the peer.
         CHAR_DESCRIPTOR_UUID16_WRITABLE (HANDLE_MIDI_CLIENT_CONFIGURATION_DESCRIPTOR,
                                          UUID_DESCRIPTOR_CLIENT_CHARACTERISTIC_CONFIGURATION,
-                                         LEGATTDB_PERM_READABLE | LEGATTDB_PERM_WRITE_REQ, 2),
+                                         LEGATTDB_PERM_READABLE | LEGATTDB_PERM_WRITABLE, 2),
             0x00,0x00,
+
+
+        // Attribute[4]: Characteristic User Description (arbitrary string, not sure if this one is necessary)
+        CHAR_DESCRIPTOR_UUID16_WRITABLE (HANDLE_MIDI_CLIENT_CONFIGURATION_DESCRIPTOR + 1,
+        								UUID_DESCRIPTOR_CHARACTERISTIC_USER_DESCRIPTION,
+        								LEGATTDB_PERM_READABLE | LEGATTDB_PERM_AUTH_WRITABLE, 4),
+			'D','O','0','0',
 #endif
 
 };
