@@ -30,6 +30,22 @@ void clearMIDIBuffer();
 void incrementMidiTimestamp();
 
 /***
+ * Resets the MIDI to the given time.
+ * Use to sync to the Master's clock.
+ *
+ * ts : Current timestamp in ms.
+ */
+void syncMidiTimestamp(int ts);
+
+/***
+ * Takes a BLE MIDI packet and parses the header and timestamps
+ *
+ * Returns the most recent/last timestamp.
+ */
+int parseMidiTimestamp(UINT8  *packet, int len);
+
+
+/***
  * Sends the next packet in the current buffer.
  * Returns >= 1 if there are additional full packets still in the buffer,
  * 0 on success, or -1 if no packets are available for copying.

@@ -269,3 +269,40 @@ void incrementMidiTimestamp() {
 		midiTimestamp = 0;
 	}
 }
+
+
+void syncMidiTimestamp(int ts) {
+	midiTimestamp = MIN(ts, MAX_TIMESTAMP_VALUE);
+}
+
+
+/***
+ * Takes a BLE MIDI packet and parses the header and timestamps
+ *
+ * Returns the most recent/last timestamp, or -1 if cannot be parsed.
+ */
+int parseMidiTimestamp(UINT8  *packet, int len) {
+
+	if (len > 1) {
+		// validate that it is a true timestamp byte
+		if (packet[1] & 0x80 == 0) {
+			return -1;
+		}
+
+		int upperbytes = (packet[0] & 0x3f) << 6; // header
+		int lowerbytes = (packet[1] & 0x7f); // timestamp
+
+// TODO: this won't work for sysexes! keep track of them!
+
+		// TODO: skip all midi events until the last timestamp
+//		int i = 1;
+//		for (; i < len; i += 3) {
+//
+//		}
+
+		return upperbytes | lowerbytes; // full 13-bit timestamp
+	}
+	else {
+		return -1;
+	}
+}

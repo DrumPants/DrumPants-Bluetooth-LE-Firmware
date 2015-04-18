@@ -1346,8 +1346,11 @@ int hello_sensor_write_handler(LEGATTDB_ENTRY_HDR *p)
 
 		ble_trace0("\n");
 
-		// TODO: sync clocks
-
+		// sync clocks
+		int timestamp = parseMidiTimestamp(attrPtr, len);
+		if (timestamp >= 0) {
+			syncMidiTimestamp(timestamp);
+		}
     }
 	else if (handle == HANDLE_MIDI_CLIENT_CONFIGURATION_DESCRIPTOR) {
 		ble_trace2("onwrite: midi client_configuration: %04x %04x\n", attrPtr[0],
