@@ -140,6 +140,13 @@ UINT8 saveMIDIDataToBuffer(char midiByte) {
 }
 
 
+void clearMIDIBuffer() {
+
+	currentRunningStatus = 0;
+
+	CBUF_Init(midiBuffer);
+}
+
 void onSendMidiPacket() {
 
 	// not sure if the spec requires a new header with a running status that stretches across packets.

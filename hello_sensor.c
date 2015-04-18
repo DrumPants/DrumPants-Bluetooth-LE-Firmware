@@ -118,6 +118,11 @@ typedef PACKED struct
     // Current value of the client configuration descriptor
     UINT16  characteristic_client_configuration;
 
+#if ENABLE_MIDI
+    // Current value of the MIDI client configuration descriptor
+    UINT16  midi_characteristic_client_configuration;
+#endif
+
     // for connection latency configuration
     UINT8   intervalMin;
     UINT8   intervalMax;
@@ -641,7 +646,11 @@ void processPuartInput() {
 void sendMIDIOverAir(BLEPROFILE_DB_PDU* db_pdu) {
 
 	// don't send if not connected, or not paired because we must send an empty packet on first read.
-	if (hello_sensor_connection_handle == 0 || !isPaired) {
+	if (hello_sensor_connection_handle == 0
+			|| !isPaired) {
+
+		// clear MIDI buffer so we don't overflow with stale packets
+		clearMIDIBuffer();
 		return;
 	}
 
@@ -654,7 +663,8 @@ void sendMIDIOverAir(BLEPROFILE_DB_PDU* db_pdu) {
 		if (error) {
 			ble_trace2("ERROR writing %d byte MIDI notification. Code: %d\n", db_pdu->len, error);
 		}
-		else if (isPaired) {
+		else if (isPaired
+				&& hello_sensor_hostinfo.midi_characteristic_client_configuration != 0) {
 			ble_trace1("sending MIDI over air (notify): %d bytes\n", db_pdu->len);
 			bleprofile_sendNotification(HANDLE_MIDI_TX_VALUE_NOTIFY, (UINT8 *)db_pdu->pdu, db_pdu->len);
 		}
@@ -1175,6 +1185,15 @@ void hello_sensor_encryption_changed(HCI_EVT_HDR *evt)
 
 	bleprofile_WriteHandle(HANDLE_HELLO_SENSOR_CLIENT_CONFIGURATION_DESCRIPTOR, &db_pdu);
 
+    // Need to setup value of MIDI Client Configuration descriptor in our database because peer
+    // might decide to read and stack sends answer without asking application.
+    db_pdu.len = 2;
+    db_pdu.pdu[0] = hello_sensor_hostinfo.midi_characteristic_client_configuration & 0xff;
+    db_pdu.pdu[1] = (hello_sensor_hostinfo.midi_characteristic_client_configuration >> 8) & 0xff;
+
+	bleprofile_WriteHandle(HANDLE_MIDI_CLIENT_CONFIGURATION_DESCRIPTOR, &db_pdu);
+
+
     // Setup value of our configuration in GATT database
     db_pdu.len = 4;
     db_pdu.pdu[0] = hello_sensor_hostinfo.intervalMin;
@@ -1290,15 +1309,16 @@ int hello_sensor_write_handler(LEGATTDB_ENTRY_HDR *p)
     int    len      = legattdb_getAttrValueLen(p);
     UINT8  *attrPtr = legattdb_getAttrValue(p);
 
-    ble_trace1("hello_sensor_write_handler: handle %04x\n", handle);
+    ble_trace1("onwrite: handle %04x\n", handle);
 
     // By writing into Characteristic Client Configuration descriptor
     // peer can enable or disable notification or indication
-    if ((len == 2) && (handle == HANDLE_HELLO_SENSOR_CLIENT_CONFIGURATION_DESCRIPTOR))
-    {
-        hello_sensor_hostinfo.characteristic_client_configuration = attrPtr[0] + (attrPtr[1] << 8);
-        ble_trace1("hello_sensor_write_handler: client_configuration %04x\n", hello_sensor_hostinfo.characteristic_client_configuration);
-    }
+	if (handle == HANDLE_HELLO_SENSOR_CLIENT_CONFIGURATION_DESCRIPTOR) {
+	    if (len == 2) {
+			hello_sensor_hostinfo.characteristic_client_configuration = attrPtr[0] + (attrPtr[1] << 8);
+			ble_trace1("onwrite: client_configuration %04x\n", hello_sensor_hostinfo.characteristic_client_configuration);
+	    }
+	}
     // User can change number of blinks to send when button is pushed
     else if ((len == 4) && (handle == HANDLE_HELLO_SENSOR_CONFIGURATION))
     {
@@ -1315,16 +1335,40 @@ int hello_sensor_write_handler(LEGATTDB_ENTRY_HDR *p)
     	// BLE over MIDI device is trying to connect.
     	// maybe this should enable MIDI notifications?
     	isPaired = TRUE;
+
+    	//onReceivedMidi();
+		ble_trace0("\nReceived midi: ");
+
+		int i;
+		for (i = 0; i < len; i++) {
+			ble_trace1("%x", attrPtr[i]);
+		}
+
+		ble_trace0("\n");
+
+		// TODO: sync clocks
+
+    }
+	else if (handle == HANDLE_MIDI_CLIENT_CONFIGURATION_DESCRIPTOR) {
+		ble_trace2("onwrite: midi client_configuration: %04x %04x\n", attrPtr[0],
+					(len == 2) ? attrPtr[1] : 0);
+
+		// TODO: enable midi notifications!
+		if (len == 2) {
+			hello_sensor_hostinfo.midi_characteristic_client_configuration = attrPtr[0] + (attrPtr[1] << 8);
+		}
+
+    	isPaired = TRUE;
     }
 #endif
     else
     {
-        ble_trace2("hello_sensor_write_handler: bad write len:%d handle:0x%x\n", len, handle);
+        ble_trace2("onwrite: bad write len:%d handle:0x%x\n", len, handle);
     	return 0x80;
     }
     // Save update to NVRAM.  Client does not need to set it on every connection.
     writtenbyte = bleprofile_WriteNVRAM(NVRAM_ID_HOST_LIST, sizeof(hello_sensor_hostinfo), (UINT8 *)&hello_sensor_hostinfo);
-    ble_trace1("hello_sensor_write_handler: NVRAM write:%04x\n", writtenbyte);
+    ble_trace1("onwrite: NVRAM write:%04x\n", writtenbyte);
 
     return 0;
 }

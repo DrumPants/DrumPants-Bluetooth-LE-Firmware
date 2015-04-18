@@ -22,6 +22,8 @@
  */
 UINT8 saveMIDIDataToBuffer(char midiByte);
 
+void clearMIDIBuffer();
+
 /***
  * Call every 1ms.
  */
