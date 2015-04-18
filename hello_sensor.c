@@ -360,7 +360,7 @@ User Description:
         CHARACTERISTIC_UUID128_WRITABLE ((HANDLE_MIDI_TX_VALUE_NOTIFY - 1), HANDLE_MIDI_TX_VALUE_NOTIFY, UUID_MIDI_CHARACTERISTIC,
                                LEGATTDB_CHAR_PROP_READ | LEGATTDB_CHAR_PROP_NOTIFY | LEGATTDB_CHAR_PROP_WRITE_NO_RESPONSE, //LEGATTDB_CHAR_PROP_WRITE, // | LEGATTDB_CHAR_PROP_AUTHD_WRITES | LEGATTDB_CHAR_PROP_WRITE_NO_RESPONSE,
                                // these SHOULD be authenticated read/writes only, but we want it to look like the iPad does when it connects.
-                               LEGATTDB_PERM_AUTH_READABLE | LEGATTDB_PERM_AUTH_WRITABLE | LEGATTDB_PERM_VARIABLE_LENGTH, BLE_MAX_PACKET_LENGTH),
+                               LEGATTDB_PERM_READABLE | LEGATTDB_PERM_AUTH_WRITABLE | LEGATTDB_PERM_VARIABLE_LENGTH, BLE_MAX_PACKET_LENGTH),
             0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,
             // for 20 chars long (Broadcom maximum):
             0x00,0x00,0x00,0x00,
@@ -495,7 +495,7 @@ HOSTINFO hello_sensor_hostinfo;
 // for Apple MIDI.
 // TODO: specs say it should not respond unless paired!
 // hopefully this is automatic.
-BOOL isPaired = TRUE;
+BOOL isPaired = FALSE;
 
 /******************************************************
  *               Function Definitions
@@ -640,8 +640,8 @@ void processPuartInput() {
  */
 void sendMIDIOverAir(BLEPROFILE_DB_PDU* db_pdu) {
 
-	// don't send if not connected.
-	if (hello_sensor_connection_handle == 0) {
+	// don't send if not connected, or not paired because we must send an empty packet on first read.
+	if (hello_sensor_connection_handle == 0 || !isPaired) {
 		return;
 	}
 
@@ -649,15 +649,14 @@ void sendMIDIOverAir(BLEPROFILE_DB_PDU* db_pdu) {
 	// assignment!
 	while ((status = getMidiPacket(db_pdu, MAX_BLE_MIDI_PACKET_LEN)) >= 0) {
 
-		ble_trace1("sending MIDI over air: %d bytes\n", db_pdu->len);
 
 		int error = bleprofile_WriteHandle(HANDLE_MIDI_TX_VALUE_NOTIFY, db_pdu);
 		if (error) {
 			ble_trace2("ERROR writing %d byte MIDI notification. Code: %d\n", db_pdu->len, error);
 		}
 		else if (isPaired) {
+			ble_trace1("sending MIDI over air (notify): %d bytes\n", db_pdu->len);
 			bleprofile_sendNotification(HANDLE_MIDI_TX_VALUE_NOTIFY, (UINT8 *)db_pdu->pdu, db_pdu->len);
-
 		}
 	}
 }
@@ -945,12 +944,17 @@ void hello_sensor_connection_up(void)
     	if (emconninfo_deviceBonded())
     	{
     		ble_trace0("\ndevice bonded");
+
+    		isPaired = TRUE;
     	}
     	else
     	{
     		ble_trace0("\ndevice not bonded\n");
+//#if !ENABLE_MIDI
+        	// as per apple accessory spec 3.9, device should not initiate pairing on its own.
     	    lesmp_pinfo->pairingParam.AuthReq  |= LESMP_AUTH_FLAG_BONDING;
             lesmp_sendSecurityRequest();
+//#endif
     	}
         return;
     }
@@ -971,6 +975,8 @@ void hello_sensor_connection_up(void)
 void hello_sensor_connection_down(void)
 {
     ble_trace2("\nhello_sensor_connection_down:%08x%04x handle:%d reason: %d\n", hello_sensor_connection_handle, emconinfo_getDiscReason());
+
+	isPaired = FALSE;
 
     // Stop connection event notifications.
     blecm_connectionEventNotifiationDisable();
@@ -1131,6 +1137,9 @@ void hello_sensor_smp_bond_result(LESMP_PARING_RESULT  result)
         ble_trace2("Bond successful %08x%04x\n", (bda[5] << 24) + (bda[4] << 16) + (bda[3] << 8) + bda[2], (bda[1] << 8) + bda[0]);
         writtenbyte = bleprofile_WriteNVRAM(NVRAM_ID_HOST_LIST, sizeof(hello_sensor_hostinfo), (UINT8 *)&hello_sensor_hostinfo);
         ble_trace1("NVRAM write:%04x\n", writtenbyte);
+
+
+    	isPaired = TRUE;
     }
 }
 
