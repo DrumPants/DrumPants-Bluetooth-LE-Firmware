@@ -359,7 +359,8 @@ User Description:
         // of the macro should be used.
         CHARACTERISTIC_UUID128_WRITABLE ((HANDLE_MIDI_TX_VALUE_NOTIFY - 1), HANDLE_MIDI_TX_VALUE_NOTIFY, UUID_MIDI_CHARACTERISTIC,
                                LEGATTDB_CHAR_PROP_READ | LEGATTDB_CHAR_PROP_NOTIFY | LEGATTDB_CHAR_PROP_WRITE_NO_RESPONSE, //LEGATTDB_CHAR_PROP_WRITE, // | LEGATTDB_CHAR_PROP_AUTHD_WRITES | LEGATTDB_CHAR_PROP_WRITE_NO_RESPONSE,
-                               LEGATTDB_PERM_READABLE | LEGATTDB_PERM_WRITABLE | LEGATTDB_PERM_VARIABLE_LENGTH, BLE_MAX_PACKET_LENGTH),
+                               // these SHOULD be authenticated read/writes only, but we want it to look like the iPad does when it connects.
+                               LEGATTDB_PERM_AUTH_READABLE | LEGATTDB_PERM_AUTH_WRITABLE | LEGATTDB_PERM_VARIABLE_LENGTH, BLE_MAX_PACKET_LENGTH),
             0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,
             // for 20 chars long (Broadcom maximum):
             0x00,0x00,0x00,0x00,
@@ -752,7 +753,13 @@ void hello_sensor_create(void)
     bleprofile_StartTimer();
 
     // Read value of the service from GATT DB.
+#if ENABLE_MIDI
+    // advertise MIDI! pick me! pick me!
+    bleprofile_ReadHandle(HANDLE_MIDI_SERVICE_UUID, &db_pdu);
+#else
     bleprofile_ReadHandle(HANDLE_HELLO_SENSOR_SERVICE_UUID, &db_pdu);
+#endif
+
     ble_tracen((char *)db_pdu.pdu, db_pdu.len);
 
     if (db_pdu.len != 16)
@@ -941,7 +948,7 @@ void hello_sensor_connection_up(void)
     	}
     	else
     	{
-    		ble_trace0("\ndevice not bonded");
+    		ble_trace0("\ndevice not bonded\n");
     	    lesmp_pinfo->pairingParam.AuthReq  |= LESMP_AUTH_FLAG_BONDING;
             lesmp_sendSecurityRequest();
     	}
@@ -963,7 +970,7 @@ void hello_sensor_connection_up(void)
 // This function will be called when connection goes down
 void hello_sensor_connection_down(void)
 {
-    ble_trace2("hello_sensor_connection_down:%08x%04x handle:%d reason: %d\n", hello_sensor_connection_handle, emconinfo_getDiscReason());
+    ble_trace2("\nhello_sensor_connection_down:%08x%04x handle:%d reason: %d\n", hello_sensor_connection_handle, emconinfo_getDiscReason());
 
     // Stop connection event notifications.
     blecm_connectionEventNotifiationDisable();
