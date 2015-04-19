@@ -502,6 +502,20 @@ HOSTINFO hello_sensor_hostinfo;
 // hopefully this is automatic.
 BOOL isPaired = FALSE;
 
+void setMidiPaired(BOOL paired) {
+	ble_trace1("\nsetMidiPaired: %d\n", paired);
+
+	isPaired = paired;
+
+	if (isPaired) {
+		hello_sensor_hostinfo.midi_characteristic_client_configuration = CCC_NOTIFICATION;
+
+		// disable notifications for old drumpants service, since we assume they want the new one,
+		// and don't want to take up precious space in the air
+		hello_sensor_hostinfo.characteristic_client_configuration = 0;
+	}
+}
+
 /******************************************************
  *               Function Definitions
  ******************************************************/
@@ -647,7 +661,8 @@ void sendMIDIOverAir(BLEPROFILE_DB_PDU* db_pdu) {
 
 	// don't send if not connected, or not paired because we must send an empty packet on first read.
 	if (hello_sensor_connection_handle == 0
-			|| !isPaired) {
+			|| !isPaired
+			|| hello_sensor_hostinfo.midi_characteristic_client_configuration == 0) {
 
 		// clear MIDI buffer so we don't overflow with stale packets
 		clearMIDIBuffer();
@@ -663,8 +678,7 @@ void sendMIDIOverAir(BLEPROFILE_DB_PDU* db_pdu) {
 		if (error) {
 			ble_trace2("ERROR writing %d byte MIDI notification. Code: %d\n", db_pdu->len, error);
 		}
-		else if (isPaired
-				&& hello_sensor_hostinfo.midi_characteristic_client_configuration != 0) {
+		else if (isPaired) {
 			ble_trace1("sending MIDI over air (notify): %d bytes\n", db_pdu->len);
 			bleprofile_sendNotification(HANDLE_MIDI_TX_VALUE_NOTIFY, (UINT8 *)db_pdu->pdu, db_pdu->len);
 		}
@@ -955,7 +969,7 @@ void hello_sensor_connection_up(void)
     	{
     		ble_trace0("\ndevice bonded");
 
-    		isPaired = TRUE;
+    		setMidiPaired(TRUE);
     	}
     	else
     	{
@@ -986,7 +1000,7 @@ void hello_sensor_connection_down(void)
 {
     ble_trace2("\nhello_sensor_connection_down:%08x%04x handle:%d reason: %d\n", hello_sensor_connection_handle, emconinfo_getDiscReason());
 
-	isPaired = FALSE;
+	setMidiPaired(FALSE);
 
     // Stop connection event notifications.
     blecm_connectionEventNotifiationDisable();
@@ -1149,7 +1163,7 @@ void hello_sensor_smp_bond_result(LESMP_PARING_RESULT  result)
         ble_trace1("NVRAM write:%04x\n", writtenbyte);
 
 
-    	isPaired = TRUE;
+    	setMidiPaired(TRUE);
     }
 }
 
@@ -1171,7 +1185,7 @@ void hello_sensor_encryption_changed(HCI_EVT_HDR *evt)
 
     //bleprofile_BUZBeep(bleprofile_p_cfg->buz_on_ms);
 
-	isPaired = TRUE;
+	setMidiPaired(TRUE);
 
     // Connection has been encrypted meaning that we have correct/paired device
     // restore values in the database
@@ -1334,7 +1348,7 @@ int hello_sensor_write_handler(LEGATTDB_ENTRY_HDR *p)
     else if ( (handle == HANDLE_MIDI_TX_VALUE_NOTIFY)) {
     	// BLE over MIDI device is trying to connect.
     	// maybe this should enable MIDI notifications?
-    	isPaired = TRUE;
+    	setMidiPaired(TRUE);
 
     	//onReceivedMidi();
 		ble_trace0("\nReceived midi: ");
@@ -1356,12 +1370,13 @@ int hello_sensor_write_handler(LEGATTDB_ENTRY_HDR *p)
 		ble_trace2("onwrite: midi client_configuration: %04x %04x\n", attrPtr[0],
 					(len == 2) ? attrPtr[1] : 0);
 
-		// TODO: enable midi notifications!
+    	setMidiPaired(TRUE);
+
+		// enable midi notifications!
 		if (len == 2) {
 			hello_sensor_hostinfo.midi_characteristic_client_configuration = attrPtr[0] + (attrPtr[1] << 8);
 		}
 
-    	isPaired = TRUE;
     }
 #endif
     else
