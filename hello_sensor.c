@@ -694,7 +694,7 @@ void send_uart_data_over_air() {
 	int len = CBUF_Len(txBuffer);
 	if (len > 0) { // always send whatever we have because this gets called only once per connection interval
 
-		ble_trace1("Sending %d bytes over air\n", len);
+		ble_trace1("Writing %d bytes to hello char\n", len);
 
 
 // TODO: is this neccessary? we're just overwriting it anyway.
@@ -882,7 +882,7 @@ void sendConnectionIntervalRequest(void) {
 	// host may change connection interval while we are not running the test. connection interval to minimum
 	INT32 connInterval = emconninfo_getConnInterval();
 	ble_trace1("\nDefault connection interval: %d", connInterval);
-	if (connInterval > hello_sensor_hostinfo.intervalMin)
+	if (connInterval > hello_sensor_hostinfo.intervalMin || connInterval == 0)
 	{
 		UINT16 connectionTimeout = hello_sensor_hostinfo.connectionTimeout * 10; // since they send to us in 100ms units, but function expects 10ms units.
 		ble_trace4("\nSetting connection interval to: %d, max: %d slave: %d, timeout: %d\n",
