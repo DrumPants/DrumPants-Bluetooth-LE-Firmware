@@ -101,6 +101,21 @@
 #define ENABLE_MIDI 1
 
 
+/***
+ * Interval in seconds in which to attempt to change connection Interval parameters
+ * to the MIDI spec. Only happens four times, tracked by midiConnectionIntervalAttempts.
+ */
+#define INTERVAL_REQUEST_INTERVAL 8
+
+// try 4 times, 2 variations on each intervalMin.
+#define MIDI_CONNECTION_INTERVAL_ATTEMPTS_MAX 4
+/***
+ * How many times to attempt requesting the connection interval parameters to match MIDI spec.
+ */
+int midiConnectionIntervalAttempts = MIDI_CONNECTION_INTERVAL_ATTEMPTS_MAX;
+
+
+
 #define NVRAM_ID_HOST_LIST					0x10	// ID of the memory block used for NVRAM access
 
 
@@ -923,6 +938,10 @@ void hello_sensor_connection_up(void)
 
     hello_sensor_connection_handle = (UINT16)emconinfo_getConnHandle();
 
+    // reset the count for attempting different connection intervals with midiConnectionIntervalAttempts.
+    hello_sensor_timer_count = 0;
+	midiConnectionIntervalAttempts = MIDI_CONNECTION_INTERVAL_ATTEMPTS_MAX;
+
     // save address of the connected device and print it out.
     memcpy(hello_sensor_remote_addr, (UINT8 *)emconninfo_getPeerPubAddr(), sizeof(hello_sensor_remote_addr));
 
@@ -1049,6 +1068,47 @@ void hello_sensor_timeout(UINT32 arg)
         case BLEPROFILE_GENERIC_APP_TIMER:
         {
             hello_sensor_timer_count++;
+
+            if (isPaired &&
+            		hello_sensor_timer_count > INTERVAL_REQUEST_INTERVAL &&
+            		midiConnectionIntervalAttempts > 0) {
+            	hello_sensor_timer_count = 0;
+            	midiConnectionIntervalAttempts--;
+
+            	/**
+            	 * Change the connection interval according to Apple MIDI BLE guidlines, 2.1.2 Connection Interval
+            	 *
+            	 */
+            	INT32 connInterval = emconninfo_getConnInterval();
+				INT32 newInterval = 0;
+
+				// we try each one twice, once within spec, once without (below)
+				// remember these are in FRAMES, not ms!
+				if (midiConnectionIntervalAttempts >= 2) {
+					newInterval = 9; // 11.25ms
+				}
+				else if (midiConnectionIntervalAttempts >= 0) {
+					newInterval = 12; // 15ms
+				}
+
+				ble_trace2("\nConnection interval attempt: new: %d, current %d", newInterval, connInterval);
+				if (newInterval < connInterval) {
+					hello_sensor_hostinfo.intervalMin = newInterval;
+
+					// we try each one twice, once within spec, once without (below)
+					if (midiConnectionIntervalAttempts % 2 == 0) {
+						// iOS BLE spec says max must be 20ms greater than min.
+						// (although some other combinations work anyway...)
+						hello_sensor_hostinfo.intervalMax = newInterval + 16; // (20ms / 1.25);
+					}
+					else {
+						hello_sensor_hostinfo.intervalMax = 16;
+					}
+
+					sendConnectionIntervalRequest();
+				}
+
+            }
 
         	// DEBUG
 #if ENABLE_CONNECTION_INTERVAL_TESTING
