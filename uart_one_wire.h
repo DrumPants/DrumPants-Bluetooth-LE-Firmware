@@ -66,7 +66,7 @@ typedef enum  {
 /***
  * Inits the PUART with the given RX callback.
  */
-PUART_ERROR peripheral_uart_init(FUNC_ON_UART_RECEIVE callback, void (*ble_trace0) (const char *p_str) );
+PUART_ERROR peripheral_uart_init(FUNC_ON_UART_RECEIVE callback);
 
 // Sends out a stream of bytes to the peer device on the peripheral uart interface.
 // buffer - The buffer to send to the peer device.

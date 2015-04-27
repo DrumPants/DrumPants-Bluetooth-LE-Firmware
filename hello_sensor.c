@@ -846,7 +846,7 @@ void hello_sensor_create(void)
 #else
 
     ble_trace0("\nuart_init(callback)\n");
-    res = peripheral_uart_init(&onUARTReceive, &ble_trace0);
+    res = peripheral_uart_init(&onUARTReceive);
 #endif
     
     if (res == PUART_SUCCESS) {

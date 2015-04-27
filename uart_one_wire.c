@@ -112,7 +112,7 @@ void
  *
  * Returns TRUE if successful.
  */
-PUART_ERROR peripheral_uart_init(FUNC_ON_UART_RECEIVE callback, void (*trace0) (const char *p_str) ) {
+PUART_ERROR peripheral_uart_init(FUNC_ON_UART_RECEIVE callback ) {
 	extern puart_UartConfig puart_config;
 
 	// Do all other app initializations.
