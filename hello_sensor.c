@@ -107,6 +107,10 @@
  */
 #define INTERVAL_REQUEST_INTERVAL 8
 
+// when we try to go by iOS BLE Spec, 3.6 Connection Parameters,
+// OS X will give us the upper maximum. So we force the maximum = minimum.
+#define MIDI_CONN_INTERVAL_IGNORE_SPEC 1
+
 // try 4 times, 2 variations on each intervalMin.
 #define MIDI_CONNECTION_INTERVAL_ATTEMPTS_MAX 4
 /***
@@ -1099,7 +1103,12 @@ void hello_sensor_timeout(UINT32 arg)
 					if (midiConnectionIntervalAttempts % 2 == 0) {
 						// iOS BLE spec says max must be 20ms greater than min.
 						// (although some other combinations work anyway...)
+
+#if MIDI_CONN_INTERVAL_IGNORE_SPEC
+						hello_sensor_hostinfo.intervalMax = newInterval; // THERE IS NO ROOM FOR NEGOTIATION. "There are FOUR lights!"
+#else
 						hello_sensor_hostinfo.intervalMax = newInterval + 16; // (20ms / 1.25);
+#endif
 					}
 					else {
 						hello_sensor_hostinfo.intervalMax = 16;
