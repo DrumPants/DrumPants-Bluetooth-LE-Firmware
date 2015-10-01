@@ -74,6 +74,14 @@
 #include "midi_over_ble.h"
 
 
+/*** IMPORTANT ***/
+/***
+ To disable debug printing for production builds, add this to the end of your make target:
+
+GCC_FLAGS="-DBLE_TRACE_DISABLE"
+ */
+
+
 
 /******************************************************
  *                      Constants
