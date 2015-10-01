@@ -59,7 +59,7 @@ The easiest way to do this is to use the DrumPants desktop app to upload the USB
 10. Once the BLE firmware is uploaded, you can now replace the MCU's temporary USB-to-UART bridge firmware with the actual DrumPants Sensorizer firmware:
   * 10a. Via the DrumPants updater: Select "Basic Kit" as the kit type, uncheck "BLE Bridge Only", and upload. (Basic kit mode will not re-upload the BLE firmware).
   * 10b. Via the Arduino IDE: https://github.com/DrumPants/Sensorizer-DrumPants-Firmware
-11. The USB-to-UART bridge is designed to reset into bootloader mode via Arduino's standard method: opening/closing the port at 1200bps. If for some reason this does not work, you can manually trigger a reset by pressing the Volume Up button on the DrumPants. If *that* doesn't work, follow the Reset and Erase instructions in the DrumPants Sensorize readme.
+11. The USB-to-UART bridge is designed to reset into bootloader mode via Arduino's standard method: opening/closing the port at 1200bps. If for some reason this does not work, you can manually trigger a reset by pressing the Volume Up button on the DrumPants. If *that* doesn't work, follow the Reset and Erase instructions in the DrumPants Sensorizer readme.
 
 
 Debugging
