@@ -23,7 +23,7 @@ Installation
 
 Requires the Broadcom WICED SDK 2.2.0.
 
-1. Install as a module in the apps directory of the WICED SDK, or just copy it into the `hello_sensor` app directory.
+1. Install as a module in the apps directory of the WICED SDK (or just copy it into the `hello_sensor` app directory (backup first!)).
 2. Create a new make target for it (or use the existing `hello_sensor` target).
 3. Double click the target to install to your dev board. For installing to DrumPants, additional steps are needed (see next section)
 
@@ -47,16 +47,18 @@ The easiest way to do this is to use the DrumPants desktop app to upload the USB
 
 1. Download the DrumPants 2.0 app (step 1 of these instructions: http://drumpants.uservoice.com/knowledgebase/articles/566124)
 2. Run the DrumPants app in factory firmware uploader mode:
-2a. *Mac OSX*: In Terminal, cd to your Applications directory and run `DrumPants.app/Contents/MacOS/DrumPants --updater`
-2b. *Windows*: (Not tested.) Run `DrumPants.exe --updater`.
+  * 2a. *Mac OSX*: In Terminal, cd to your Applications directory and run `./DrumPants.app/Contents/MacOS/DrumPants --updater`
+  * 2b. *Windows*: (Not tested.) Run `DrumPants.exe --updater`.
 3. The Firmware uploader window should appear.
 4. Check the "BLE Bridge Only" box.
 5. Connect your DrumPants, turn them on, and proceed with uploading the firmware.
 6. If successful, the DrumPants LED should only show two dots.
 7. You can now access the Broadcom BLE module as if it was directly connected to your USB port:
 8. Open the Broadcom WICED IDE.
-9. Double click the make target to upload the BLE firmare from the last section. It may take several tries, and you may have to turn the DrumPants off and back on again before uploading.
-10. Once the BLE firmware is uploaded, you can now replace the MCU's temporary USB-to-UART bridge firmware with the actual DrumPants Sensorizer firmware, via the Arduino IDE: https://github.com/DrumPants/Sensorizer-DrumPants-Firmware
+9. Double click the make target to upload the BLE firmware from the last section. It may take several tries, and you may have to turn the DrumPants off and back on again before uploading.
+10. Once the BLE firmware is uploaded, you can now replace the MCU's temporary USB-to-UART bridge firmware with the actual DrumPants Sensorizer firmware:
+  * 10a. Via the DrumPants updater: Select "Basic Kit" as the kit type, uncheck "BLE Bridge Only", and upload. (Basic kit mode will not re-upload the BLE firmware).
+  * 10b. Via the Arduino IDE: https://github.com/DrumPants/Sensorizer-DrumPants-Firmware
 11. The USB-to-UART bridge is designed to reset into bootloader mode via Arduino's standard method: opening/closing the port at 1200bps. If for some reason this does not work, you can manually trigger a reset by pressing the Volume Up button on the DrumPants. If *that* doesn't work, follow the Reset and Erase instructions in the DrumPants Sensorize readme.
 
 
